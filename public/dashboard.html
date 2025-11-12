@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body onload="checkAuth('student')">
+    <!-- Header -->
+    <header class="header dashboard">
+        <nav class="header-nav">
+            <div class="header-left">
+                <div class="header-title">
+                    <i class="fas fa-book-reader"></i>
+                    Library System <span>| Student Dashboard</span>
+                </div>
+            </div>
+
+            <div class="header-center">
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="#" class="nav-link active" onclick="toggleDropdown('booksDropdown')">Books List <i class="fas fa-chevron-down"></i></a>
+                        <ul class="dropdown-menu" id="booksDropdown">
+                            <li><a href="#" data-target="booksListSection" onclick="switchSection('booksListSection')">View All Books</a></li>
+                            <li><a href="#" onclick="focusSearch()">Search Books</a></li>
+                            <li><a href="#" onclick="showCategories()">Categories</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="toggleDropdown('issuedDropdown')">Issued Books <i class="fas fa-chevron-down"></i></a>
+                        <ul class="dropdown-menu" id="issuedDropdown">
+                            <li><a href="#" data-target="myOrdersSection" onclick="switchSection('myOrdersSection'); loadMyOrders();">View Issued</a></li>
+                            <li><a href="#" onclick="showReturnBooks()">Return Books</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="toggleDropdown('requestsDropdown')">Issue Requests <i class="fas fa-chevron-down"></i></a>
+                        <ul class="dropdown-menu" id="requestsDropdown">
+                            <li><a href="#" data-target="issueRequestsSection" onclick="switchSection('issueRequestsSection')">View Requests</a></li>
+                            <li><a href="#" onclick="showCancelRequests()">Cancel Requests</a></li>
+                        </ul>
+                    </li>
+                    <li class="logout-item"><a href="#" onclick="logout()" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                </ul>
+            </div>
+
+            <div class="header-right">
+                <div class="user-info-container">
+                    <div class="user-info">
+                        <img src="default-avatar.png" alt="Profile" class="profile-picture" id="profilePicture">
+                        <div class="user-details">
+                            <div class="user-name">Welcome, <span id="welcomeName">Student</span></div>
+                            <div class="user-role">Student Account</div>
+                        </div>
+                    </div>
+                    <div class="user-menu" id="userMenu">
+                        <div class="user-menu-item" id="changePictureBtn"><i class="fas fa-camera"></i> Change Picture</div>
+                    </div>
+                </div>
+                <button class="nav-toggle" aria-label="Toggle navigation">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div id="booksListSection" class="admin-section" style="margin-bottom: 20px;">
+                <h2><i class="fas fa-search"></i> Search Books</h2>
+                <div id="booksList"></div>
+            </div>
+
+            <div id="myOrdersSection" class="admin-section" style="margin-bottom: 20px; display:none;">
+                <h2><i class="fas fa-book-open"></i> Your Issued Books</h2>
+                <div id="myOrdersList"></div>
+            </div>
+
+            <div id="issueRequestsSection" class="admin-section" style="margin-bottom: 20px; display:none;">
+                <h2><i class="fas fa-paper-plane"></i> Your Book Issue Requests</h2>
+                <div id="myPendingRequestsList"></div>
+            </div>
+
+            <div id="returnedBooksSection" class="admin-section" style="margin-bottom: 20px; display:none;">
+                <h2><i class="fas fa-undo"></i> Returned Books History</h2>
+                <div id="returnedBooksList"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-links">
+                <a href="#"><i class="fas fa-info-circle"></i> About</a>
+                <a href="#"><i class="fas fa-book"></i> Library Rules</a>
+                <a href="#"><i class="fas fa-question-circle"></i> Help</a>
+                <a href="#"><i class="fas fa-envelope"></i> Contact</a>
+            </div>
+            <div class="footer-copyright">
+                © 2025 Library Management System. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <script src="auth.js"></script>
+    <script>
+        // Function to generate default avatar with first letter
+        function generateDefaultAvatar(name) {
+            const firstLetter = name.charAt(0).toUpperCase();
+            const canvas = document.createElement('canvas');
+            canvas.width = 40;
+            canvas.height = 40;
+            const ctx = canvas.getContext('2d');
+
+            // Background color (random based on name)
+            const colors = ['#1a365d', '#2d3748', '#a0522d', '#f6e05e', '#38a169', '#e53e3e'];
+            const colorIndex = name.length % colors.length;
+            ctx.fillStyle = colors[colorIndex];
+            ctx.fillRect(0, 0, 40, 40);
+
+            // Text
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(firstLetter, 20, 20);
+
+            return canvas.toDataURL();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const username = localStorage.getItem('username') || 'Student';
+            document.getElementById('welcomeName').textContent = username;
+
+            const profilePicUrl = localStorage.getItem('profilePictureUrl');
+            const profilePic = document.getElementById('profilePicture');
+
+            if (profilePicUrl && profilePicUrl !== 'null') {
+                profilePic.src = profilePicUrl;
+            } else {
+                // Generate default avatar with first letter
+                profilePic.src = generateDefaultAvatar(username);
+            }
+
+            // User menu toggle
+            const userInfo = document.querySelector('.user-info');
+            const userMenu = document.getElementById('userMenu');
+            if (userInfo) {
+                userInfo.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    userMenu.classList.toggle('show');
+                });
+            }
+            document.addEventListener('click', () => {
+                if (userMenu && userMenu.classList.contains('show')) {
+                    userMenu.classList.remove('show');
+                }
+            });
+
+            // Handle change picture
+            const changePictureBtn = document.getElementById('changePictureBtn');
+            if (changePictureBtn) {
+                changePictureBtn.addEventListener('click', () => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/*';
+                    input.style.display = 'none';
+                    input.onchange = async (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            const formData = new FormData();
+                            formData.append('image', file);
+                            formData.append('userId', localStorage.getItem('userId'));
+
+                            try {
+                                const response = await fetch('http://127.0.0.1:5001/api/user/update-profile-picture', {
+                                    method: 'POST',
+                                    body: formData
+                                });
+                                const data = await response.json();
+                                if (data.success) {
+                                    profilePic.src = data.image_url;
+                                    localStorage.setItem('profilePictureUrl', data.image_url);
+                                    alert('Profile picture updated successfully!');
+                                } else {
+                                    alert('Error updating profile picture: ' + data.message);
+                                }
+                            } catch (error) {
+                                alert('Network error while updating profile picture.');
+                            }
+                        }
+                    };
+                    input.click();
+                });
+            }
+        });
+
+    </script>
+    <script src="books.js"></script>
+    <script src="dashboard.js"></script>
+    <script>
+        // Load all necessary data when the page is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth('student')) {
+                loadBooks(false); // Load all books for the student view
+                loadMyOrders();   // Load the student's issued and pending books
+            }
+        });
+    </script>
+</body>
+</html>

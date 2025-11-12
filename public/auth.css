@@ -1,0 +1,109 @@
+/* c:\Users\ASUS\OneDrive\Desktop\library-python-backend\public\auth.css */
+
+/* General body styling for authentication pages */
+.auth-page {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #f0f2f5 0%, #e0e5ec 100%); /* Subtle gradient background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    color: #333;
+}
+
+/* Container for login/register forms */
+.auth-container {
+    background-color: #ffffff;
+    padding: 40px;
+    border-radius: 12px; /* Slightly more rounded */
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15); /* Deeper shadow */
+    text-align: center;
+    width: 100%;
+    max-width: 420px; /* Slightly wider */
+    box-sizing: border-box;
+}
+
+.auth-container h1 {
+    color: #2c3e50; /* Darker heading */
+    margin-bottom: 30px;
+    font-size: 2.2em;
+    font-weight: 700;
+}
+
+.auth-container p {
+    color: #666;
+    margin-top: 25px;
+    font-size: 0.95em;
+}
+
+.auth-container p a {
+    color: #3498db; /* A friendly blue */
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.auth-container p a:hover {
+    color: #2980b9;
+    text-decoration: underline;
+}
+
+.auth-container form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px; /* More spacing */
+}
+
+.auth-container input[type="text"],
+.auth-container input[type="email"],
+.auth-container input[type="password"] {
+    width: calc(100% - 24px); /* Account for padding */
+    padding: 14px 12px;
+    border: 1px solid #dcdcdc;
+    border-radius: 8px; /* Rounded inputs */
+    font-size: 1em;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.auth-container input:focus {
+    border-color: #3498db;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+.auth-container button[type="submit"] {
+    background-color: #3498db;
+    color: white;
+    padding: 14px 25px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.1em;
+    font-weight: 600;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 10px rgba(52, 152, 219, 0.2);
+}
+
+.auth-container button[type="submit"]:hover {
+    background-color: #2980b9;
+    transform: translateY(-2px);
+}
+
+.message {
+    color: #e74c3c; /* Red for error messages */
+    margin-bottom: 20px;
+    font-weight: bold;
+    font-size: 0.95em;
+}
+
+/* Responsive adjustments for auth pages */
+@media (max-width: 600px) {
+    .auth-container {
+        margin: 20px;
+        padding: 30px;
+    }
+    .auth-container h1 {
+        font-size: 1.8em;
+    }
+}

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .admin-section {
+            background: white;
+            border: 1px solid #e1e8ed;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        .admin-section h3 { 
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 0;
+        }
+        #addBookForm {
+            /* ... existing styles ... */
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 25px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .user-row:hover {
+            background-color: #f2f2f2;
+            cursor: pointer;
+        }
+        #userDetailsContent .order-card {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body onload="checkAuth('admin')">
+    <!-- Header -->
+    <header class="header dashboard">
+        <nav class="header-nav">
+            <div class="header-left">
+                <div class="header-title">
+                    <i class="fas fa-shield-alt"></i> Library System <span>| Admin Panel</span>
+                </div>
+            </div>
+            <div class="header-center">
+                <ul class="nav-list">
+                    <li><a href="#" data-target="booksListSection" class="nav-link active">Books List</a></li>
+                    <li><a href="#" data-target="addBookSection" class="nav-link">Add Book</a></li>
+                    <li><a href="#" data-target="issueRequestsSection" class="nav-link">Issue Requests</a></li>
+                    <li><a href="#" data-target="returnRequestsSection" class="nav-link" onclick="loadReturnRequests()">Return Requests</a></li>
+                    <li><a href="#" data-target="usersSection" class="nav-link">Manage Users</a></li>
+                    <li class="logout-item"><a href="#" onclick="logout()" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                </ul>
+            </div>
+            <div class="header-right">
+                <div class="user-info-container">
+                    <div class="user-info">
+                        <img src="default-avatar.png" alt="Profile" class="profile-picture" id="profilePicture">
+                        <div class="user-details">
+                            <div class="user-name">Welcome, Admin</div>
+                            <div class="user-role">Administrator Account</div>
+                        </div>
+                    </div>
+                    <div class="user-menu" id="userMenu">
+                        <div class="user-menu-item" id="changePictureBtn"><i class="fas fa-camera"></i> Change Picture</div>
+                    </div>
+                </div>
+                <button class="nav-toggle" aria-label="Toggle navigation">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div id="addBookSection" class="admin-section">
+                <h3><i class="fas fa-book-medical"></i> Add Book</h3>
+                <form id="addBookForm">
+                    <div class="form-image-preview">
+                        <div class="image-preview" id="imagePreview">
+                            <i class="fas fa-book-open placeholder-icon"></i>
+                            <img src="" alt="Book cover" style="display: none;">
+                        </div>
+                        <div class="image-upload-controls">
+                            <label for="bookImage" class="upload-btn">
+                                <i class="fas fa-upload"></i> Choose Cover Image
+                            </label>
+                            <input type="file" id="bookImage" accept="image/*" style="display: none;">
+                        </div>
+                    </div>
+                    <div class="form-fields">
+                        <input type="text" id="newTitle" placeholder="Book Title" required>
+                        <input type="text" id="newAuthor" placeholder="Author Name" required>
+                        <input type="text" id="newCategory" placeholder="Book Category" required>
+                        <input type="number" id="newCopies" placeholder="Number of Copies" required min="1" value="1">
+                        <button type="submit"><i class="fas fa-plus"></i> Add Book</button>
+                    </div>
+                </form>
+                <!-- only the add form lives here for Add Book -->
+            </div>
+
+            <div id="booksListSection" class="admin-section" style="display:none;">
+                <h3><i class="fas fa-list"></i> Books List</h3>
+                <div id="booksList"></div>
+            </div>
+
+            <div id="issueRequestsSection" class="admin-section" style="display:none;">
+                <h3><i class="fas fa-hourglass-start"></i> Pending Book Issue Requests</h3>
+                <div id="issueRequestsList"></div>
+            </div>
+
+            <div id="returnRequestsSection" class="admin-section" style="display:none;">
+                <h3><i class="fas fa-exchange-alt"></i> Pending Return Requests</h3>
+                <div id="returnRequestsList"></div>
+            </div>
+
+            <div id="usersSection" class="admin-section">
+                <h3><i class="fas fa-users"></i> Manage Users</h3>
+                <div id="usersList"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- User Details Modal -->
+    <div id="userDetailsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <div id="userDetailsContent">
+                <!-- User details will be populated here by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-links">
+                <a href="#"><i class="fas fa-cog"></i> Settings</a>
+                <a href="#"><i class="fas fa-chart-bar"></i> Statistics</a>
+                <a href="#"><i class="fas fa-history"></i> Logs</a>
+                <a href="#"><i class="fas fa-envelope"></i> Support</a>
+            </div>
+            <div class="footer-copyright">
+                © 2025 Library Management System. All rights reserved.
+            </div>
+        </div>
+    </footer>
+    <script src="auth.js"></script>
+    <script src="books.js"></script>
+    <script>
+        // Function to generate default avatar with first letter
+        function generateDefaultAvatar(name) {
+            const firstLetter = name.charAt(0).toUpperCase();
+            const canvas = document.createElement('canvas');
+            canvas.width = 40;
+            canvas.height = 40;
+            const ctx = canvas.getContext('2d');
+
+            // Background color (random based on name)
+            const colors = ['#1a365d', '#2d3748', '#a0522d', '#f6e05e', '#38a169', '#e53e3e'];
+            const colorIndex = name.length % colors.length;
+            ctx.fillStyle = colors[colorIndex];
+            ctx.fillRect(0, 0, 40, 40);
+
+            // Text
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(firstLetter, 20, 20);
+
+            return canvas.toDataURL();
+        }
+
+        // Ensure admin page loads books and related data after auth
+        document.addEventListener('DOMContentLoaded', () => {
+            // checkAuth will redirect if not admin
+            if (typeof checkAuth === 'function' && checkAuth('admin')) {
+                if (typeof loadBooks === 'function') loadBooks(true);
+                if (typeof loadIssueRequests === 'function') loadIssueRequests();
+                if (typeof loadReturnRequests === 'function') loadReturnRequests();
+                if (typeof loadUsers === 'function') loadUsers();
+            }
+
+            // Set up profile picture
+            const username = localStorage.getItem('username') || 'Admin';
+            const profilePicUrl = localStorage.getItem('profilePictureUrl');
+            const profilePic = document.getElementById('profilePicture');
+
+            if (profilePicUrl && profilePicUrl !== 'null') {
+                profilePic.src = profilePicUrl;
+            } else {
+                // Generate default avatar with first letter
+                profilePic.src = generateDefaultAvatar(username);
+            }
+
+            // Navigation behavior
+            const navToggle = document.querySelector('.nav-toggle');
+            const navList = document.querySelector('.nav-list');
+            const navLinks = document.querySelectorAll('.nav-link');
+
+
+            function showSection(targetId) {
+                // Hide all admin sections
+                const allSections = document.querySelectorAll('.admin-section');
+                allSections.forEach(s => s.style.display = 'none');
+
+                // Special handling for booksListSection (show manageBooksSection but hide add form)
+                const sectionToShow = document.getElementById(targetId);
+                if (sectionToShow) {
+                    sectionToShow.style.display = 'block';
+                }
+
+                // Handle addBookForm visibility based on which section is active
+                const addFormContainer = document.getElementById('addBookSection');
+                if (addFormContainer) addFormContainer.style.display = (targetId === 'addBookSection') ? 'block' : 'none';
+
+                // Update active class
+                navLinks.forEach(link => link.classList.toggle('active', link.dataset.target === targetId));
+                // close nav on mobile
+                if (navList && navList.classList.contains('show')) navList.classList.remove('show');
+            }
+
+            // Wire nav links
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const target = link.dataset.target;
+                    showSection(target);
+                });
+            });
+
+            // initial state: show books list
+            showSection('booksListSection');
+
+            if (navToggle) {
+                navToggle.addEventListener('click', () => {
+                    if (navList) navList.classList.toggle('show');
+                });
+            }
+
+            // User menu toggle
+            const userInfo = document.querySelector('.user-info');
+            const userMenu = document.getElementById('userMenu');
+            if (userInfo) {
+                userInfo.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    userMenu.classList.toggle('show');
+                });
+            }
+            document.addEventListener('click', () => {
+                if (userMenu && userMenu.classList.contains('show')) {
+                    userMenu.classList.remove('show');
+                }
+            });
+
+            // Handle change picture
+            const changePictureBtn = document.getElementById('changePictureBtn');
+            if (changePictureBtn) {
+                changePictureBtn.addEventListener('click', () => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/*';
+                    input.style.display = 'none';
+                    input.onchange = async (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            const formData = new FormData();
+                            formData.append('image', file);
+                            formData.append('userId', localStorage.getItem('userId'));
+
+                            try {
+                                const response = await fetch('http://127.0.0.1:5001/api/user/update-profile-picture', {
+                                    method: 'POST',
+                                    body: formData
+                                });
+                                const data = await response.json();
+                                if (data.success) {
+                                    profilePic.src = data.image_url;
+                                    localStorage.setItem('profilePictureUrl', data.image_url);
+                                    alert('Profile picture updated successfully!');
+                                } else {
+                                    alert('Error updating profile picture: ' + data.message);
+                                }
+                            } catch (error) {
+                                alert('Network error while updating profile picture.');
+                            }
+                        }
+                    };
+                    input.click();
+                });
+            }
+        });
+    </script>
+</body>
+</body>
+</html>

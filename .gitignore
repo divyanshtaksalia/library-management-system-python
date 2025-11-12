@@ -1,0 +1,15 @@
+venv/
+.venv/
+
+# Environment Variables
+.env
+
+# Firebase Service Account Keys
+*.json
+
+# Python Cache files
+__pycache__/
+*.pyc
+
+# Flask Session
+instance/
