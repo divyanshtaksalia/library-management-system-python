@@ -1,15 +1,35 @@
+Python Environment Files
+
 venv/
 .venv/
 
-# Environment Variables
-.env
+Python compiled files
 
-# Firebase Service Account Keys
-*.json
-
-# Python Cache files
-__pycache__/
+pycache/
 *.pyc
 
-# Flask Session
+CRITICAL SECRETS & CONFIGURATION
+
+Ignore the environment variables file
+
+.env
+
+Explicitly ignore the Firebase Service Account Key (Very Important!)
+
+my-new-firebase-key.json
+
+Deployment files to keep (like vercel.json) are not included here,
+
+so they will be correctly tracked by Git.
+
+User Uploaded Content - should never be tracked
+
+uploads/
+
+Flask session and temporary data
+
 instance/
+
+Operating System generated files
+
+.DS_Store
