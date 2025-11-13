@@ -22,35 +22,35 @@ db = None
 
 def initialize_firebase():
     """Initializes the Firebase Admin SDK and returns the db object.
-    
-    It checks for FIREBASE_CREDENTIALS_JSON environment variable (for Vercel deployment)
+
+    It checks for FIREBASE_SA_JSON environment variable (for Vercel deployment)
     first, and falls back to FIREBASE_SA_FILE path (for local development).
     """
     global firebase_app, db
-    
+
     try:
         # --- Vercel/Cloud Deployment Method (Preferred) ---
-        sa_json_string = os.getenv("FIREBASE_CREDENTIALS_JSON")
-        
+        sa_json_string = os.getenv("FIREBASE_SA_JSON")
+
         if sa_json_string:
             # Load credentials from the environment variable string
             # We must parse the JSON string into a Python dict first
             cred_dict = json.loads(sa_json_string)
             cred = credentials.Certificate(cred_dict)
             print("Firebase credentials loaded from environment variable (Vercel/Cloud).")
-        
+
         else:
             # --- Local Development Method (Fallback) ---
             sa_file = os.getenv("FIREBASE_SA_FILE")
-            
+
             if not sa_file or not os.path.exists(sa_file):
                 print(f"ERROR: Service account file not found at path specified in .env: {sa_file}")
                 return None, None
-            
+
             # Load credentials from the local file path
             cred = credentials.Certificate(sa_file)
             print("Firebase credentials loaded from local file.")
-            
+
         # Continue with initialization
         if not firebase_admin._apps:
             firebase_app = initialize_app(cred)
@@ -60,7 +60,7 @@ def initialize_firebase():
         db = firestore.client()
         print("Firebase Admin SDK initialized successfully.")
         return firebase_app, db
-        
+
     except Exception as e:
         print(f"ERROR: Failed to initialize Firebase: {e}")
         return None, None
@@ -89,7 +89,7 @@ def home():
     """A simple route to confirm that the server is running."""
     if not firebase_app:
         return jsonify({
-            "message": "Python backend is running, but Firebase failed to initialize! Check your firebase-service-account.json path or FIREBASE_CREDENTIALS_JSON environment variable.",
+            "message": "Python backend is running, but Firebase failed to initialize! Check your firebase-service-account.json path or FIREBASE_SA_JSON environment variable.",
             "status": "error"
         }), 500
 
