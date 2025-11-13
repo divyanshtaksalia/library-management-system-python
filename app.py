@@ -233,8 +233,8 @@ def add_book():
                 image_file.save(image_path)
 
                 # Create the public URL for the image
-                image_url = f"http://127.0.0.1:5001/uploads/{filename}"
-                
+                image_url = f"/uploads/{filename}"
+
                 # Add image_url to the book data
                 book_data['image_url'] = image_url
 
@@ -336,7 +336,7 @@ def update_book_image():
         image_file.save(image_path)
 
         # Create the public URL for the image
-        image_url = f"http://127.0.0.1:5001/uploads/{filename}"
+        image_url = f"/uploads/{filename}"
 
         # Update the book document in Firestore
         book_ref = db.collection(BOOKS_COLLECTION).document(book_id)
@@ -420,7 +420,7 @@ def update_profile_picture():
         image_file.save(image_path)
 
         # Create the public URL for the image
-        image_url = f"http://127.0.0.1:5001/uploads/{filename}"
+        image_url = f"/uploads/{filename}"
 
         # Update the user document in Firestore
         user_ref = db.collection(USERS_COLLECTION).document(user_id)
@@ -827,7 +827,7 @@ def uploaded_file(filename):
 
 
 if __name__ == '__main__':
-    port = int(os.getenv("SERVER_PORT", 5001))
+    port = int(os.getenv("PORT", 5001))
 
     print(f"Starting Flask server on http://127.0.0.1:{port}")
     app.run(host='0.0.0.0', port=port, debug=True)

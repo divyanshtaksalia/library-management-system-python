@@ -70,7 +70,7 @@ async function showReturnBooks() {
     }
 
     try {
-        const response = await fetch(`http://127.0.0.1:5001/api/returned-books?userId=${userId}`);
+        const response = await fetch(`/api/returned-books?userId=${userId}`);
         const data = await response.json();
 
         if (data.success) {
@@ -131,7 +131,7 @@ async function showCancelRequests() {
     }
 
     try {
-        const response = await fetch(`http://127.0.0.1:5001/api/my-orders?userId=${userId}`);
+        const response = await fetch(`/api/my-orders?userId=${userId}`);
         const data = await response.json();
 
         if (data.success) {
@@ -181,7 +181,7 @@ async function cancelRequest(issueId) {
     }
 
     try {
-        const response = await fetch('http://127.0.0.1:5001/api/cancel-request', {
+        const response = await fetch('/api/cancel-request', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ issueId: issueId })
@@ -207,7 +207,7 @@ async function returnBook(issueId) {
     }
 
     try {
-        const response = await fetch('http://127.0.0.1:5001/api/return-book', {
+        const response = await fetch('/api/return-book', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ issueId: issueId })
@@ -235,7 +235,7 @@ async function loadMyOrders() {
     if (!ordersList || !pendingList || !userId) return;
 
     try {
-        const response = await fetch(`http://127.0.0.1:5001/api/my-orders?userId=${userId}`);
+        const response = await fetch(`/api/my-orders?userId=${userId}`);
         const data = await response.json();
 
         if (data.success) {

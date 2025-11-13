@@ -2,7 +2,7 @@ const usersContainer = document.getElementById('usersList');
 
 async function loadUsers() {
     try {
-        const response = await fetch('http://127.0.0.1:5001/api/users');
+        const response = await fetch('/api/users');
         const data = await response.json();
 
         if (data.success) {
@@ -75,7 +75,7 @@ function setupStatusToggleListeners() {
             const newStatus = e.target.dataset.status;
 
             try {
-                const response = await fetch('http://127.0.0.1:5001/api/users/status', {
+                const response = await fetch('/api/users/status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: userId, status: newStatus })

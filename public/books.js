@@ -32,7 +32,7 @@ function setButtonLoading(button, isLoading, originalText) {
 async function loadUsers() {
     if (!usersList) return;
     try {
-        const response = await fetch('http://127.0.0.1:5001/api/users');
+        const response = await fetch('/api/users');
         const data = await response.json();
         if (data.success) {
             renderUsers(data.users);
@@ -105,7 +105,7 @@ async function showUserDetails(userId) {
     try {
         // This endpoint needs to be created on the backend.
         // It should return user details and their issued books.
-        const response = await fetch(`http://127.0.0.1:5001/api/user-details/${userId}`);
+        const response = await fetch(`/api/user-details/${userId}`);
         const data = await response.json();
 
         if (data.success) {
@@ -169,7 +169,7 @@ function setupUserStatusListeners() {
             }
 
             try {
-                const response = await fetch(`http://127.0.0.1:5001/api/users/${userId}`, {
+                const response = await fetch(`/api/users/${userId}`, {
                     method: 'DELETE'
                 });
                 const data = await response.json();
@@ -188,7 +188,7 @@ function setupUserStatusListeners() {
             const actionText = newStatus === 'blocked' ? 'Block' : 'Activate';
 
             try {
-                const response = await fetch('http://127.0.0.1:5001/api/users/status', {
+                const response = await fetch('/api/users/status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: userId, status: newStatus })
@@ -212,7 +212,7 @@ function setupUserStatusListeners() {
 async function loadBooks(showAdminTools = false) {
     showBookSkeleton();
     const userId = localStorage.getItem('userId');
-    const url = new URL('http://127.0.0.1:5001/api/books');
+    const url = new URL('/api/books');
     if (userId) url.searchParams.append('userId', userId);
 
     try {
@@ -324,7 +324,7 @@ function setupDeleteListeners() {
             }
 
             try {
-                const response = await fetch(`http://127.0.0.1:5001/api/books/${bookId}`, { method: 'DELETE' });
+                const response = await fetch(`/api/books/${bookId}`, { method: 'DELETE' });
                 const data = await response.json();
                 alert(data.message);
                 if (data.success) {
@@ -354,7 +354,7 @@ function setupIssueListeners() {
             }
 
             try {
-                const response = await fetch('http://127.0.0.1:5001/api/issue-book', {
+                const response = await fetch('/api/issue-book', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: userId, bookId: bookId })
@@ -390,8 +390,8 @@ function showReturnRequestSkeleton() {
 
 async function loadReturnRequests() {
     if (!returnRequestsList) return;
-    try {
-        const response = await fetch('http://127.0.0.1:5001/api/return-requests');
+            try {
+                const response = await fetch('/api/return-requests');
         const data = await response.json();
         if (data.success) {
             renderReturnRequests(data.requests);
@@ -458,8 +458,8 @@ function renderReturnRequests(requests) {
 
 async function loadIssueRequests() {
     if (!issueRequestsList) return;
-    try {
-        const response = await fetch('http://127.0.0.1:5001/api/issue-requests');
+            try {
+                const response = await fetch('/api/issue-requests');
         const data = await response.json();
         if (data.success) {
             renderIssueRequests(data.requests);
@@ -532,7 +532,7 @@ function setupIssueRequestListeners() {
             const action = e.target.dataset.action;
 
             try {
-                const response = await fetch('http://127.0.0.1:5001/api/handle-request', {
+                const response = await fetch('/api/handle-request', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ issueId, bookId, action }) // Add bookId to the request body
@@ -565,7 +565,7 @@ function setupReturnRequestListeners() {
             }
 
             try {
-                const response = await fetch('http://127.0.0.1:5001/api/handle-return', {
+                const response = await fetch('/api/handle-return', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ issueId, bookId, action })
@@ -639,7 +639,7 @@ window.updateBookImage = async function(bookId) {
             formData.append('bookId', bookId);
 
             try {
-                const response = await fetch('http://127.0.0.1:5001/api/books/update-image', {
+                const response = await fetch('/api/books/update-image', {
                     method: 'POST',
                     body: formData
                 });
@@ -675,7 +675,7 @@ window.editBook = async function(bookId) {
     }
 
     try {
-        const response = await fetch(`http://127.0.0.1:5001/api/books/${bookId}`, {
+        const response = await fetch(`/api/books/${bookId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -707,7 +707,7 @@ window.updateCopies = async function(bookId) {
     }
 
     try {
-        const response = await fetch('http://127.0.0.1:5001/api/books/update-copies', {
+        const response = await fetch('/api/books/update-copies', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ bookId: bookId, copies: parseInt(newCopies) })
@@ -722,10 +722,10 @@ window.updateCopies = async function(bookId) {
 
 window.deleteBook = async function(bookId) {
     if (confirm('Are you sure you want to delete this book?')) {
-        try {
-            const response = await fetch(`http://127.0.0.1:5001/api/books/${bookId}`, {
-                method: 'DELETE'
-            });
+    try {
+        const response = await fetch(`/api/books/${bookId}`, {
+            method: 'DELETE'
+        });
             const data = await response.json();
             if (data.success) {
                 loadBooks(true);
@@ -761,7 +761,7 @@ if (addBookForm) {
         }
 
         try {
-            const response = await fetch('http://127.0.0.1:5001/api/books', {
+            const response = await fetch('/api/books', {
                 method: 'POST',
                 body: formData
             });

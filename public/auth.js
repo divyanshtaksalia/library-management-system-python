@@ -44,7 +44,7 @@ function setupProfilePictureUpload() {
                 formData.append('userId', userId);
 
                 try {
-                    const response = await fetch('http://127.0.0.1:5001/api/user/update-profile-picture', {
+                    const response = await fetch('/api/user/update-profile-picture', {
                         method: 'POST',
                         body: formData
                     });
