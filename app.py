@@ -284,7 +284,7 @@ def delete_user(user_id):
 def home():
     """Redirects the root URL to the login.html page."""
     # This sends a 302 Redirect to the browser
-    return redirect('/login.html')
+    return redirect('/public/login.html')
 
     return jsonify({
         "message": "Python backend is running! Firebase initialized successfully.",
