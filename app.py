@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import os
 import uuid # To generate unique user IDs
 import json # JSON string को process करने के लिए ज़रूरी है
+from flask import Flask, jsonify, request, send_from_directory, redirect
 
 # Firestore Collection Names
 USERS_COLLECTION = 'users'
@@ -281,12 +282,9 @@ def delete_user(user_id):
 
 @app.route('/', methods=['GET'])
 def home():
-    """A simple route to confirm that the server is running."""
-    if not firebase_app:
-        return jsonify({
-            "message": "Python backend is running, but Firebase failed to initialize! Check your firebase service account setup (FIREBASE_SA_JSON or FIREBASE_SA_FILE).",
-            "status": "error"
-        }), 500
+    """Redirects the root URL to the login.html page."""
+    # This sends a 302 Redirect to the browser
+    return redirect('/login.html')
 
     return jsonify({
         "message": "Python backend is running! Firebase initialized successfully.",
