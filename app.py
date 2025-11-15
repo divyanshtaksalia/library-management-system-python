@@ -788,22 +788,6 @@ def uploaded_file(filename):
     """Serves files from the UPLOAD_FOLDER."""
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-@app.route('/', methods=['GET'])
-def home():
-    """Redirects the root URL to login.html (assuming it's in 'public')."""
-    return redirect('/login.html')
-
-@app.route('/<path:path>')
-def serve_public_files(path):
-    """Serves static files from the 'public' directory."""
-    return send_from_directory('public', path)
-
-# --- Run Application ---
-
-# We remove the if __name__ == '__main__': block.
-# Vercel will import the 'app' object and run it.
-# The startup print statements are moved to the global scope
-# to run during the serverless function's cold start.
 if not db:
     print("---")
     print("CRITICAL: Firebase DB not initialized. Server is running but API calls will fail.")
