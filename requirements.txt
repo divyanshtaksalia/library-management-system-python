@@ -1,4 +1,6 @@
-Flask
-Flask-CORS
+flask
+flask_cors
 firebase-admin
 python-dotenv
+werkzeug
+gunicorn
