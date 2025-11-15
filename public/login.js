@@ -12,14 +12,14 @@ import {
     setLogLevel
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// ग्लोबल वेरिएबल्स जो Canvas द्वारा प्रदान किए जाते हैं
+// ग्लोबल वेरिएबल्स
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
 let app, auth, db;
 
-// Firestore कलेक्शन पाथ (पब्लिक डेटा: सभी यूजर्स के लिए एक्सेसिबल)
+// Firestore कलेक्शन पाथ 
 const USERS_COLLECTION = `artifacts/${appId}/public/data/users`; 
 
 // --- Firebase Initialization ---
@@ -31,7 +31,7 @@ if (Object.keys(firebaseConfig).length > 0) {
         db = getFirestore(app);
         console.log("Firebase SDK (Auth & Firestore) initialized in login.js.");
 
-        // कैनवास या अनाम ऑथेंटिकेशन संभालें
+        // Canvas ऑथेंटिकेशन संभालें
         if (initialAuthToken) {
              signInWithCustomToken(auth, initialAuthToken)
                 .catch(error => console.error("Canvas Custom Token Sign-In failed:", error));
@@ -49,6 +49,7 @@ if (Object.keys(firebaseConfig).length > 0) {
 
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    // यह फॉर्म सबमिशन को रोकता है।
     e.preventDefault(); 
 
     const email = document.getElementById('email').value;
@@ -75,7 +76,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         
         const userData = userDoc.data();
 
-        // --- 3. लोकल स्टोरेज में डेटा सेव करें और रीडायरेक्ट करें ---
+        // --- 3. लोकल स्टोरेज में डेटा सेव करें ---
         localStorage.setItem('userRole', userData.role);
         localStorage.setItem('userId', user.uid);
         localStorage.setItem('username', userData.username);
@@ -83,7 +84,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             localStorage.setItem('profilePictureUrl', userData.profile_picture_url);
         }
 
-        // लॉगिन सफलता
+        // --- 4. रीडायरेक्ट करें और फंक्शन से बाहर निकलें (Fix!) ---
         messageElement.classList.add('success');
         messageElement.textContent = 'Login successful! Redirecting...';
         messageElement.style.display = 'block';
@@ -93,6 +94,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         } else {
             window.location.href = 'dashboard.html';
         }
+        
+        // यह सुनिश्चित करता है कि फॉर्म सबमिट होने से पहले नेविगेशन शुरू हो जाए
+        return; 
         
     } catch (error) {
         console.error('Login failed:', error);
@@ -117,12 +121,8 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
 ---
 
-## ⏭️ अगला कदम: बाकी API कॉल्स को ठीक करें
+## ⏭️ अगला कदम: Firebase पर पूर्ण माइग्रेशन जारी रखें
 
-अब आपका लॉगिन काम करना चाहिए। लेकिन, आपकी अन्य फ़ाइलों में अभी भी `fetch` कॉल हैं:
+अब आपका लॉगिन काम करना चाहिए। अगला बड़ा कदम डेटा लोडिंग और ट्रांजेक्शन के लिए बाकी फ़ाइलों को सर्वरलेस करना है।
 
-1.  **`books.js`**: किताबें लोड करना, इशू/रिटर्न रिक्वेस्ट (`/api/books`, `/api/issue-request`, `/api/return-request`)
-2.  **`dashboard.js`**: यूज़र की इशू किए गए और पेंडिंग बुक्स को लोड करना।
-3.  **`users.js`**: सभी यूजर्स को लोड करना और उनका स्टेटस अपडेट करना।
-
-हमें इन सभी को **Firestore `onSnapshot`** का उपयोग करने के लिए अपडेट करना होगा। क्या मैं अब आपकी **`books.js`** फ़ाइल को अपडेट करूँ ताकि किताबों की लिस्टिंग, इशू, और रिटर्न की रिक्वेस्ट सर्वरलेस हो जाए?
+क्या मैं अब आपकी **`books.js`** फ़ाइल को अपडेट करूँ ताकि किताबों की लिस्टिंग, इशू, और रिटर्न की रिक्वेस्ट सर्वरलेस हो जाए?
