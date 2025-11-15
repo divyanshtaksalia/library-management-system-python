@@ -15,9 +15,181 @@
       "src": "/uploads/(.*)",
       "dest": "app.py"
     },
+    
+    
+    
+    
+    
+    
     {
       "src": "/",
-      "dest": "/login.html"
+      "dest": "/public/login.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
     }
   ]
 }
+```eof
+
+## 2. निश्चित `app.py` (Static Routes Removed)
+
+जैसा कि आपने सही ढंग से बताया, Vercel को स्टैटिक फ़ाइलों को संभालने की अनुमति देने के लिए हमें Flask के Static File Serving राउट्स को हटाना होगा।
+
+नीचे आपकी पिछली `app.py` फ़ाइल का अंतिम, साफ़ किया गया संस्करण है। इसमें से `home()` और `serve_public_files()` फ़ंक्शन हटा दिए गए हैं, और केवल आवश्यक `uploaded_file()` फ़ंक्शन और API राउट्स रखे गए हैं।
+
+```python:app.py (Final Version)
+import os
+import uuid
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request, send_from_directory, redirect
+from flask_cors import CORS
+import firebase_admin
+from firebase_admin import credentials, firestore
+from werkzeug.utils import secure_filename
+
+# --- Initialization ---
+
+# 1. Load environment variables from .env file
+load_dotenv()
+
+def initialize_firebase():
+    """
+    Initializes the Firebase Admin SDK using credentials
+    from an environment variable.
+    """
+    try:
+        sa_file_path = os.getenv("FIREBASE_SA_FILE")
+        if not sa_file_path or not os.path.exists(sa_file_path):
+            print(f"ERROR: Service account file not found.")
+            print(f"Please set the FIREBASE_SA_FILE environment variable to the path of your JSON key file.")
+            return None, None
+
+        cred = credentials.Certificate(sa_file_path)
+        
+        # Check if the app is already initialized
+        if not firebase_admin._apps:
+            firebase_app = firebase_admin.initialize_app(cred)
+        else:
+            firebase_app = firebase_admin.get_app()
+
+        db_client = firestore.client()
+        print("Firebase Admin SDK initialized successfully.")
+        return firebase_app, db_client
+        
+    except ValueError as ve:
+        print(f"ERROR: Firebase initialization failed. Already initialized? {ve}")
+        # Try to return the existing client if already initialized
+        try:
+            db_client = firestore.client()
+            return firebase_admin.get_app(), db_client
+        except Exception:
+            return None, None
+    except Exception as e:
+        print(f"CRITICAL ERROR: Failed to initialize Firebase Admin SDK: {e}")
+        return None, None
+
+# 2. Initialize Flask App and Firebase
+app = Flask(__name__)
+CORS(app) # Enable CORS for all routes
+
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'default_secret_key_change_me')
+app.config['UPLOAD_FOLDER'] = 'uploads' # Used for file serving
+
+# Ensure upload directory exists
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
+
+firebase_app, db = initialize_firebase()
+
+# --- Application Routes ---
+
+# Placeholder routes for completeness (add your actual login/issue logic here)
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    # ... your login logic ...
+    return jsonify({"success": True, "message": "Login successful (placeholder)"})
+
+@app.route('/api/items', methods=['GET'])
+def api_get_items():
+    # ... your item retrieval logic ...
+    return jsonify({"success": True, "items": []})
+
+@app.route('/api/handle_return/<action>', methods=['POST'])
+def handle_return_request(action):
+    """
+    Handles approval or rejection of a return request for an item.
+    """
+    if not db:
+        return jsonify({"success": False, "message": "Database not initialized."}), 500
+        
+    data = request.get_json()
+    item_id = data.get('item_id')
+    
+    if not item_id:
+        return jsonify({"success": False, "message": "Item ID is required."}), 400
+
+    try:
+        issue_ref = db.collection('issues').document(item_id)
+        issue_doc = issue_ref.get()
+
+        if not issue_doc.exists:
+            return jsonify({"success": False, "message": "Issue record not found."}), 404
+
+        if action == 'approve':
+            # Set status to 'returned'
+            issue_ref.update({'return_status': 'returned', 'return_date': firestore.SERVER_TIMESTAMP})
+            return jsonify({"success": True, "message": "Return processed and approved."}), 200
+
+        elif action == 'reject':
+            # Reset status to 'issued'
+            issue_ref.update({'return_status': 'issued', 'return_request_date': firestore.DELETE_FIELD})
+            return jsonify({"success": True, "message": "Return request rejected."}), 200
+        else:
+            return jsonify({"success": False, "message": "Invalid action."}), 400
+
+    except Exception as e:
+        print(f"Error handling return request: {e}")
+        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
+
+# --- Static File Serving (Only UPLOADS kept) ---
+
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    """Serves files from the UPLOAD_FOLDER."""
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+# The / and /<path:path> routes for serving public files have been REMOVED.
+
+# --- Run Application ---
+
+if not db:
+    print("---")
+    print("CRITICAL: Firebase DB not initialized. Server is running but API calls will fail.")
+    print("Please check your FIREBASE_SA_FILE path in the .env file.")
+    print("---")
+else:
+    print("Flask app object created. Ready for Vercel.")
+```eof
+
+## 3. अंतिम जाँच और डिप्लॉयमेंट
+
+1.  सुनिश्चित करें कि आपकी फ़ोल्डर संरचना इस प्रकार है:
+    ```
+    / (Root Directory)
+    ├── app.py
+    ├── vercel.json
+    ├── public/
+    │   ├── login.html
+    │   └── ... (other css, js files)
+    ├── uploads/
+    └── .env
+    ```
+2.  **`vercel.json`** और **`app.py`** को ऊपर दिए गए कोड से अपडेट करें।
+3.  पुनः डिप्लॉय करें:
+
+```bash:Redeploy Command:redeploy.sh
+git add .
+git commit -m "Final fix: Corrected /public path in vercel.json for static assets"
+vercel --prod
