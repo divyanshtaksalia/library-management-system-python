@@ -781,12 +781,17 @@ def handle_return_request():
         print(f"Error handling return request: {e}")
         return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
 
-# --- Static File Serving ---
+# --- Static File Serving (Only /uploads kept) ---
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     """Serves files from the UPLOAD_FOLDER."""
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+# REMOVED: @app.route('/', methods=['GET']) def home():
+# REMOVED: @app.route('/<path:path>') def serve_public_files(path):
+
+# --- Run Application ---
 
 if not db:
     print("---")
@@ -795,3 +800,50 @@ if not db:
     print("---")
 else:
     print("Flask app object created. Ready for Vercel.")
+```eof
+
+## 2. Final `vercel.json` (Correct Routing)
+
+Yeh configuration Vercel ko batayegi ki:
+1.  **API** calls aur **`/uploads`** calls ko `app.py` par bhejo।
+2.  **Root URL** (`/`) aur baaki **static files** (`.css`, `.js`, `.html`) ko `/public` folder se uthao (Vercel ke built-in static handler se)।
+
+```json:vercel.json (Corrected)
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "app.py",
+      "use": "@vercel/python",
+      "config": { "maxLambdaSize": "15mb" }
+    }
+  ],
+  "routes": [
+    // 1. API calls ko app.py par bhejo
+    {
+      "src": "/api/(.*)",
+      "dest": "app.py"
+    },
+    // 2. Uploads ko app.py par bhejo
+    {
+      "src": "/uploads/(.*)",
+      "dest": "app.py"
+    },
+    
+    
+    
+    
+    
+    
+    // 3. Root URL (/) ko public/login.html se serve karo
+    {
+      "src": "/",
+      "dest": "/public/login.html"
+    },
+    // 4. Baki sabhi static files (CSS, JS) ko public/ folder se serve karo
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ]
+}
