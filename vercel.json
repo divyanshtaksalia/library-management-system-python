@@ -8,16 +8,16 @@
   ],
   "routes": [
     {
-      "src": "/uploads/(.*)",
-      "dest": "app.py"
-    },
-    {
       "src": "/api/(.*)",
       "dest": "app.py"
     },
     {
-      "src": "/(.*)",
+      "src": "/uploads/(.*)",
       "dest": "app.py"
+    },
+    {
+      "src": "/",
+      "dest": "/login.html"
     }
   ]
 }
