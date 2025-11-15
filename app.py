@@ -421,7 +421,7 @@ def update_profile_picture():
         image_file.save(image_path)
 
         # Create the public URL for the image
-        image_url = f"http://127.0.0.1:5001/uploads/{filename}"
+        image_url = f"/api/uploads/{filename}"
 
         # Update the user document in Firestore
         user_ref = db.collection(USERS_COLLECTION).document(user_id)
