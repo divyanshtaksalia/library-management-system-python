@@ -7,22 +7,22 @@
     }
   ],
   "routes": [
-    // 1. API calls ko app.py par bhejo
+
     {
       "src": "/api/(.*)",
       "dest": "app.py"
     },
-    // 2. Uploads ko app.py par bhejo
+
     {
       "src": "/uploads/(.*)",
       "dest": "app.py"
     },
-    // 3. Root URL (/) ko public/login.html se serve karo
+
     {
       "src": "/",
       "dest": "/public/login.html"
     },
-    // 4. Baki sabhi (CSS, JS, Dashboard, etc.) ko public/ folder se serve karo
+
     {
       "src": "/(.*)",
       "dest": "/public/$1"
