@@ -1,11 +1,20 @@
 import os
 import uuid
+import json
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory, redirect
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, firestore
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
+
+# --- Constants ---
+USERS_COLLECTION = 'users'
+BOOKS_COLLECTION = 'books'
+ISSUES_COLLECTION = 'issues'
+RETURN_REQUESTS_COLLECTION = 'return_requests'
 
 # --- Initialization ---
 
@@ -20,7 +29,7 @@ def initialize_firebase():
     try:
         sa_file_path = os.getenv("FIREBASE_SA_FILE")
         if not sa_file_path or not os.path.exists(sa_file_path):
-            print(f"ERROR: Service account file not found.")
+            print(f"ERROR: Service account file not found. Path: {sa_file_path}")
             print(f"Please set the FIREBASE_SA_FILE environment variable to the path of your JSON key file.")
             return None, None
 
@@ -37,123 +46,135 @@ def initialize_firebase():
         return firebase_app, db_client
         
     except ValueError as ve:
-        print(f"ERROR: Firebase initialization failed. Already initialized? {ve}")
-        # Try to get the default app if it exists
-        if firebase_admin._apps:
-            return firebase_admin.get_app(), firestore.client()
-        return None, None
+        # This catches "The default Firebase app already exists." if called multiple times
+        try:
+            firebase_app = firebase_admin.get_app()
+            db_client = firestore.client()
+            print("Firebase Admin SDK retrieved existing app successfully.")
+            return firebase_app, db_client
+        except Exception as e:
+            print(f"ERROR: Failed to retrieve existing Firebase app: {e}")
+            return None, None
     except Exception as e:
         print(f"ERROR: Failed to initialize Firebase: {e}")
         return None, None
 
-# 2. Initialize Firebase
 firebase_app, db = initialize_firebase()
 
-# 3. Initialize Flask App
+# Create Flask app instance
 app = Flask(__name__)
-CORS(app) # Enable Cross-Origin Resource Sharing
+CORS(app) # Enable CORS for all routes
 
-# 4. Configure Uploads
+# Define the upload folder and ensure it exists
 UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-# Ensure the upload folder exists
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# 5. Firestore Collection Names
-USERS_COLLECTION = 'users'
-BOOKS_COLLECTION = 'books'
-ISSUE_RECORDS_COLLECTION = 'issue_records'
+# --- Utility Functions ---
 
-# --- Helper Function ---
-
-def check_db():
-    """Checks if the database is initialized."""
+def is_admin(user_id):
+    """Checks if a user has admin role."""
     if not db:
-        return jsonify({"success": False, "message": "Backend database not initialized. Check server logs."}), 500
+        return False
+    user_doc = db.collection(USERS_COLLECTION).document(user_id).get()
+    return user_doc.exists and user_doc.to_dict().get('role') == 'admin'
+
+def get_book_details(book_id):
+    """Retrieves book details by ID."""
+    if not db:
+        return None
+    book_doc = db.collection(BOOKS_COLLECTION).document(book_id).get()
+    if book_doc.exists:
+        book_data = book_doc.to_dict()
+        book_data['id'] = book_doc.id
+        return book_data
     return None
 
-# --- User & Auth Routes ---
+# --- User/Auth API Routes ---
 
 @app.route('/api/register', methods=['POST'])
-def register_user():
-    """Registers a new user (student) in Firestore."""
-    if (db_error := check_db()): return db_error
+def register():
+    """Handles user registration."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
 
     data = request.get_json()
-    if not data or not all(k in data for k in ('username', 'email', 'password')):
-        return jsonify({"success": False, "message": "Missing required fields (username, email, password)."}), 400
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
 
-    email = data['email']
+    if not all([username, email, password]):
+        return jsonify({"success": False, "message": "Missing required fields."}), 400
 
     try:
-        # Check if email already exists
-        user_ref = db.collection(USERS_COLLECTION).where('email', '==', email).limit(1).get()
-        if user_ref: # user_ref is a list of documents
-            return jsonify({"success": False, "message": "This email is already registered."}), 409
+        # Check if user already exists
+        users_ref = db.collection(USERS_COLLECTION)
+        existing_user = users_ref.where('email', '==', email).limit(1).get()
+
+        if existing_user:
+            return jsonify({"success": False, "message": "User with this email already exists."}), 409
+
+        # Determine role (first user is admin, all others are students)
+        if not users_ref.limit(1).get():
+            role = 'admin'
+        else:
+            role = 'student'
 
         # Create new user
-        new_user_id = str(uuid.uuid4())
         user_data = {
-            'user_id': new_user_id,
-            'username': data['username'],
+            'username': username,
             'email': email,
-            'password': data['password'], # Note: Storing passwords in plain text is insecure. Use hashing in a real app.
-            'role': 'student',
+            'password_hash': generate_password_hash(password),
+            'role': role,
             'account_status': 'active',
-            'profile_picture_url': None,
             'created_at': firestore.SERVER_TIMESTAMP,
+            'profile_picture_url': None
         }
 
-        db.collection(USERS_COLLECTION).document(new_user_id).set(user_data)
-
-        return jsonify({
-            "success": True, 
-            "message": "Registration successful!",
-            "user_id": new_user_id
-        }), 201
+        users_ref.add(user_data)
+        return jsonify({"success": True, "message": "Registration successful. You can now log in."}), 201
 
     except Exception as e:
         print(f"Error during registration: {e}")
         return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
 
-
 @app.route('/api/login', methods=['POST'])
-def login_user():
-    """Authenticates a user based on email and password."""
-    if (db_error := check_db()): return db_error
+def login():
+    """Handles user login."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
 
     data = request.get_json()
-    if not data or not all(k in data for k in ('email', 'password')):
+    email = data.get('email')
+    password = data.get('password')
+
+    if not all([email, password]):
         return jsonify({"success": False, "message": "Missing email or password."}), 400
 
-    email = data['email']
-    password = data['password']
-
     try:
-        users_ref = db.collection(USERS_COLLECTION).where('email', '==', email).limit(1).get()
+        users_ref = db.collection(USERS_COLLECTION)
+        query = users_ref.where('email', '==', email).limit(1).get()
 
-        if not users_ref:
+        if not query:
             return jsonify({"success": False, "message": "Invalid email or password."}), 401
 
-        user_doc = users_ref[0]
+        user_doc = query[0]
         user_data = user_doc.to_dict()
 
         if user_data.get('account_status') == 'blocked':
-            return jsonify({"success": False, "message": "Account is blocked. Contact administrator."}), 403
+            return jsonify({"success": False, "message": "Your account has been blocked by the admin."}), 403
 
-        if user_data.get('password') != password:
-            return jsonify({"success": False, "message": "Invalid email or password."}), 401
-
-        return jsonify({
-            "success": True,
-            "message": "Login successful!",
-            "user": {
-                "id": user_data.get('user_id'),
-                "username": user_data.get('username'),
-                "role": user_data.get('role'),
-                "profile_picture_url": user_data.get('profile_picture_url')
+        if check_password_hash(user_data['password_hash'], password):
+            user_info = {
+                'id': user_doc.id,
+                'username': user_data['username'],
+                'role': user_data['role'],
+                'profile_picture_url': user_data.get('profile_picture_url')
             }
-        }), 200
+            return jsonify({"success": True, "message": "Login successful.", "user": user_info}), 200
+        else:
+            return jsonify({"success": False, "message": "Invalid email or password."}), 401
 
     except Exception as e:
         print(f"Error during login: {e}")
@@ -161,288 +182,98 @@ def login_user():
 
 @app.route('/api/user/update-profile-picture', methods=['POST'])
 def update_profile_picture():
-    """Updates the profile picture for a specific user."""
-    if (db_error := check_db()): return db_error
+    """Updates the user's profile picture and returns the new URL."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
 
     try:
-        if 'image' not in request.files or 'userId' not in request.form:
-            return jsonify({"success": False, "message": "Missing image file or userId."}), 400
+        user_id = request.form.get('userId')
+        image_file = request.files.get('image')
 
-        image_file = request.files['image']
-        user_id = request.form['userId']
+        if not user_id or not image_file:
+            return jsonify({"success": False, "message": "Missing user ID or image file."}), 400
+        
+        # Simple admin check - only the user or admin can change the profile picture
+        # For production, proper token-based authorization is needed.
 
-        if image_file.filename == '':
-            return jsonify({"success": False, "message": "No selected file."}), 400
+        # Save the file
+        filename = f"{user_id}_{uuid.uuid4().hex}_{secure_filename(image_file.filename)}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        image_file.save(filepath)
+        
+        # Generate the public URL (relative path for Vercel/Flask static serving)
+        image_url = f"/uploads/{filename}"
 
-        # Create a secure filename
-        filename = f"profile_{user_id}_{secure_filename(image_file.filename)}"
-        image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        image_file.save(image_path)
-
-        # Create the public URL for the image
-        image_url = f"/uploads/{filename}" # Relative URL
-
-        # Update the user document in Firestore
+        # Update Firestore
         user_ref = db.collection(USERS_COLLECTION).document(user_id)
         user_ref.update({'profile_picture_url': image_url})
 
-        return jsonify({"success": True, "message": "Profile picture updated!", "image_url": image_url}), 200
+        return jsonify({"success": True, "message": "Profile picture updated.", "image_url": image_url}), 200
 
     except Exception as e:
         print(f"Error updating profile picture: {e}")
         return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
 
-# --- Admin: User Management Routes ---
-
-@app.route('/api/users', methods=['GET'])
-def get_users():
-    """(Admin) Fetches all student users."""
-    if (db_error := check_db()): return db_error
-
-    try:
-        users_ref = db.collection(USERS_COLLECTION).where('role', '==', 'student').stream()
-        users_list = [user.to_dict() for user in users_ref]
-        
-        # Serialize timestamps if necessary (though not shown in original for this route)
-        for user in users_list:
-             if 'created_at' in user and hasattr(user['created_at'], 'isoformat'):
-                 user['created_at'] = user['created_at'].isoformat()
-
-        return jsonify({"success": True, "users": users_list}), 200
-
-    except Exception as e:
-        print(f"Error fetching users: {e}")
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
-
-@app.route('/api/users/status', methods=['POST'])
-def update_user_status():
-    """(Admin) Updates a user's account status (block/unblock)."""
-    if (db_error := check_db()): return db_error
-
-    data = request.get_json()
-    if not data or not all(k in data for k in ('userId', 'status')):
-        return jsonify({"success": False, "message": "Missing userId or status."}), 400
-
-    user_id = data['userId']
-    new_status = data['status']
-
-    if new_status not in ['active', 'blocked']:
-        return jsonify({"success": False, "message": "Invalid status."}), 400
-
-    try:
-        user_ref = db.collection(USERS_COLLECTION).document(user_id)
-        if not user_ref.get().exists:
-            return jsonify({"success": False, "message": "User not found."}), 404
-
-        user_ref.update({'account_status': new_status})
-        action_text = "blocked" if new_status == "blocked" else "activated"
-        return jsonify({"success": True, "message": f"User account {action_text}."}), 200
-
-    except Exception as e:
-        print(f"Error updating user status: {e}")
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
-
-@app.route('/api/users/<string:user_id>', methods=['DELETE'])
-def delete_user(user_id):
-    """(Admin) Deletes a user."""
-    if (db_error := check_db()): return db_error
-
-    try:
-        user_ref = db.collection(USERS_COLLECTION).document(user_id)
-        if not user_ref.get().exists:
-            return jsonify({"success": False, "message": "User not found."}), 404
-
-        # TODO: In a real app, you'd also delete associated issue records
-        # or handle them (e.g., auto-return books).
-        user_ref.delete()
-
-        return jsonify({"success": True, "message": "User deleted successfully."}), 200
-
-    except Exception as e:
-        print(f"Error deleting user: {e}")
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
-
-
-# --- Book Management Routes (Admin & General) ---
-
-@app.route('/api/books', methods=['GET'])
-def get_books():
-    """Fetches all books. If userId is provided, shows user-specific status."""
-    if (db_error := check_db()): return db_error
-
-    user_id = request.args.get('userId')
-
-    try:
-        books_ref = db.collection(BOOKS_COLLECTION).order_by('created_at', direction=firestore.Query.DESCENDING).stream()
-        books_list = []
-        
-        for book in books_ref:
-            book_data = book.to_dict()
-            book_id = book_data.get('book_id')
-
-            if 'created_at' in book_data and hasattr(book_data['created_at'], 'isoformat'):
-                 book_data['created_at'] = book_data['created_at'].isoformat()
-
-            # Default status
-            book_data['display_status'] = 'available' if book_data.get('copies_available', 0) > 0 else 'not_available'
-
-            if user_id and book_id:
-                # Check user's record for this book
-                issue_ref = db.collection(ISSUE_RECORDS_COLLECTION).where('user_id', '==', user_id).where('book_id', '==', book_id).where('return_status', 'in', ['pending_issue', 'issued']).limit(1).get()
-                
-                if issue_ref:
-                    issue_status = issue_ref[0].to_dict().get('return_status')
-                    if issue_status == 'pending_issue':
-                        book_data['display_status'] = 'pending_issue'
-                    elif issue_status == 'issued':
-                        book_data['display_status'] = 'issued'
-
-            books_list.append(book_data)
-
-        return jsonify({"success": True, "books": books_list}), 200
-
-    except Exception as e:
-        print(f"Error fetching books: {e}")
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
+# --- Admin Routes (Books/Users) ---
 
 @app.route('/api/books', methods=['POST'])
 def add_book():
-    """(Admin) Adds a new book, handling optional image upload."""
-    if (db_error := check_db()): return db_error
-
+    """Admin: Adds a new book."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
+    
+    # Simple auth check (assuming Admin ID is passed in the request or token)
+    # For now, we'll assume the client handles the admin role check
+    
     try:
-        if 'title' not in request.form or 'author' not in request.form:
-            return jsonify({"success": False, "message": "Missing required fields (title, author)."}), 400
+        title = request.form.get('title')
+        author = request.form.get('author')
+        category = request.form.get('category')
+        copies = int(request.form.get('copies', 0))
+        image_file = request.files.get('image')
 
-        book_id = str(uuid.uuid4())
-        total_copies = int(request.form.get('copies', 1))
-        
+        if not all([title, author, category]) or copies <= 0:
+            return jsonify({"success": False, "message": "Missing required fields or invalid copies count."}), 400
+
+        image_url = None
+        if image_file:
+            # Save the image file
+            filename = f"book_{uuid.uuid4().hex}_{secure_filename(image_file.filename)}"
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            image_file.save(filepath)
+            image_url = f"/uploads/{filename}"
+
         book_data = {
-            'book_id': book_id,
-            'title': request.form['title'],
-            'author': request.form['author'],
-            'category': request.form.get('category', 'Uncategorized'),
-            'total_copies': total_copies,
-            'copies_available': total_copies,
-            'image_url': None,
+            'title': title,
+            'author': author,
+            'category': category,
+            'copies': copies,
+            'available_copies': copies,
+            'image_url': image_url,
             'created_at': firestore.SERVER_TIMESTAMP
         }
 
-        if 'image' in request.files:
-            image_file = request.files['image']
-            if image_file.filename != '':
-                filename = f"book_{book_id}_{secure_filename(image_file.filename)}"
-                image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                image_file.save(image_path)
-                book_data['image_url'] = f"/uploads/{filename}" # Relative URL
-
-        db.collection(BOOKS_COLLECTION).document(book_id).set(book_data)
-
-        return jsonify({
-            "success": True,
-            "message": "Book added successfully!",
-            "book_id": book_id
-        }), 201
+        db.collection(BOOKS_COLLECTION).add(book_data)
+        return jsonify({"success": True, "message": "Book added successfully."}), 201
 
     except Exception as e:
         print(f"Error adding book: {e}")
         return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
 
-@app.route('/api/books/<string:book_id>', methods=['DELETE'])
-def delete_book(book_id):
-    """(Admin) Deletes a book."""
-    if (db_error := check_db()): return db_error
-
-    try:
-        book_ref = db.collection(BOOKS_COLLECTION).document(book_id)
-        if not book_ref.get().exists:
-            return jsonify({"success": False, "message": "Book not found."}), 404
-        
-        # TODO: Also delete associated issue records or handle them.
-        # TODO: Delete the associated image file from /uploads.
-        book_ref.delete()
-
-        return jsonify({"success": True, "message": "Book deleted successfully."}), 200
-
-    except Exception as e:
-        print(f"Error deleting book: {e}")
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
-
-
-@app.route('/api/books/<string:book_id>', methods=['PUT'])
-def update_book_details(book_id):
-    """(Admin) Updates book's text details (title, author, category)."""
-    if (db_error := check_db()): return db_error
+@app.route('/api/books/<book_id>', methods=['PUT'])
+def update_book(book_id):
+    """Admin: Updates an existing book."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
+    
+    # Note: Handling image update logic is complex, for simplicity, this only updates metadata and copies.
 
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({"success": False, "message": "No data provided."}), 400
-
-        book_ref = db.collection(BOOKS_COLLECTION).document(book_id)
-        if not book_ref.get().exists:
-            return jsonify({"success": False, "message": "Book not found."}), 404
-
-        update_data = {}
-        if 'title' in data: update_data['title'] = data['title']
-        if 'author' in data: update_data['author'] = data['author']
-        if 'category' in data: update_data['category'] = data['category']
-
-        if update_data:
-            book_ref.update(update_data)
-            return jsonify({"success": True, "message": "Book details updated."}), 200
-        else:
-            return jsonify({"success": False, "message": "No valid fields to update."}), 400
-            
-    except Exception as e:
-        print(f"Error updating book details: {e}")
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
-
-@app.route('/api/books/update-image', methods=['POST'])
-def update_book_image():
-    """(Admin) Updates the image for a specific book."""
-    if (db_error := check_db()): return db_error
-
-    try:
-        if 'image' not in request.files or 'bookId' not in request.form:
-            return jsonify({"success": False, "message": "Missing image file or bookId."}), 400
-
-        image_file = request.files['image']
-        book_id = request.form['bookId']
-
-        if image_file.filename == '':
-            return jsonify({"success": False, "message": "No selected file."}), 400
-
-        # TODO: Delete the old image file.
-        filename = f"book_{book_id}_{secure_filename(image_file.filename)}"
-        image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        image_file.save(image_path)
-        image_url = f"/uploads/{filename}"
-
-        db.collection(BOOKS_COLLECTION).document(book_id).update({'image_url': image_url})
-
-        return jsonify({
-            "success": True,
-            "message": "Image updated successfully!",
-            "image_url": image_url
-        }), 200
-
-    except Exception as e:
-        print(f"Error updating book image: {e}")
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
-
-@app.route('/api/books/update-copies', methods=['POST'])
-def update_book_copies():
-    """(Admin) Updates the total copies for a book, adjusting available copies."""
-    if (db_error := check_db()): return db_error
-
-    try:
-        data = request.get_json()
-        if 'bookId' not in data or 'copies' not in data:
-            return jsonify({"success": False, "message": "Missing bookId or copies."}), 400
-
-        book_id = data['bookId']
-        new_total_copies = int(data['copies'])
+        title = data.get('title')
+        author = data.get('author')
+        category = data.get('category')
+        copies = data.get('copies')
 
         book_ref = db.collection(BOOKS_COLLECTION).document(book_id)
         book_doc = book_ref.get()
@@ -450,283 +281,253 @@ def update_book_copies():
         if not book_doc.exists:
             return jsonify({"success": False, "message": "Book not found."}), 404
 
-        book_data = book_doc.to_dict()
-        current_total = book_data.get('total_copies', 0)
-        current_available = book_data.get('copies_available', 0)
-        issued_copies = current_total - current_available
+        update_data = {}
+        if title: update_data['title'] = title
+        if author: update_data['author'] = author
+        if category: update_data['category'] = category
+        if copies is not None:
+            # Simple copies update logic
+            old_copies = book_doc.to_dict().get('copies', 0)
+            old_available = book_doc.to_dict().get('available_copies', old_copies)
+            copies = int(copies)
+            
+            diff = copies - old_copies
+            new_available = old_available + diff
 
-        if new_total_copies < issued_copies:
-            return jsonify({"success": False, "message": f"Cannot set copies lower than currently issued books ({issued_copies})."}), 400
+            if new_available < 0:
+                return jsonify({"success": False, "message": "Cannot reduce copies below the number of currently issued books."}), 400
+            
+            update_data['copies'] = copies
+            update_data['available_copies'] = new_available
 
-        new_available_copies = new_total_copies - issued_copies
+        if update_data:
+            book_ref.update(update_data)
+            return jsonify({"success": True, "message": "Book updated successfully."}), 200
+        else:
+            return jsonify({"success": False, "message": "No data provided for update."}), 400
 
-        book_ref.update({
-            'total_copies': new_total_copies,
-            'copies_available': new_available_copies
-        })
-        return jsonify({"success": True, "message": "Book copies updated."}), 200
-        
     except Exception as e:
-        print(f"Error updating book copies: {e}")
+        print(f"Error updating book: {e}")
         return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
 
-# --- Issue & Return Routes (Student) ---
+@app.route('/api/books/<book_id>', methods=['DELETE'])
+def delete_book(book_id):
+    """Admin: Deletes a book."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
+    
+    try:
+        book_ref = db.collection(BOOKS_COLLECTION).document(book_id)
+        if not book_ref.get().exists:
+            return jsonify({"success": False, "message": "Book not found."}), 404
+
+        book_ref.delete()
+        return jsonify({"success": True, "message": "Book deleted successfully."}), 200
+
+    except Exception as e:
+        print(f"Error deleting book: {e}")
+        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
+
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    """Admin: Gets a list of all non-admin users."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
+    
+    try:
+        users_ref = db.collection(USERS_COLLECTION)
+        users = users_ref.where('role', '!=', 'admin').get()
+        
+        user_list = []
+        for doc in users:
+            data = doc.to_dict()
+            user_list.append({
+                'user_id': doc.id,
+                'username': data.get('username'),
+                'email': data.get('email'),
+                'account_status': data.get('account_status', 'active'),
+                'profile_picture_url': data.get('profile_picture_url')
+            })
+
+        return jsonify({"success": True, "users": user_list}), 200
+
+    except Exception as e:
+        print(f"Error getting users: {e}")
+        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
+
+@app.route('/api/users/status', methods=['POST'])
+def update_user_status():
+    """Admin: Blocks or unblocks a user."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
+
+    data = request.get_json()
+    user_id = data.get('userId')
+    status = data.get('status') # 'block' or 'unblock'
+
+    if not user_id or status not in ['block', 'unblock']:
+        return jsonify({"success": False, "message": "Missing user ID or invalid status action."}), 400
+
+    try:
+        user_ref = db.collection(USERS_COLLECTION).document(user_id)
+        
+        new_status = 'blocked' if status == 'block' else 'active'
+        user_ref.update({'account_status': new_status})
+
+        return jsonify({"success": True, "message": f"User account successfully {new_status}."}), 200
+
+    except Exception as e:
+        print(f"Error updating user status: {e}")
+        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
+
+# --- General Routes (Student/All) ---
+
+@app.route('/api/books', methods=['GET'])
+def get_all_books():
+    """Gets a list of all available books."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
+
+    try:
+        books_ref = db.collection(BOOKS_COLLECTION)
+        books = books_ref.get()
+        
+        book_list = []
+        for doc in books:
+            data = doc.to_dict()
+            book_list.append({
+                'id': doc.id,
+                'title': data.get('title'),
+                'author': data.get('author'),
+                'category': data.get('category'),
+                'copies': data.get('copies'),
+                'available_copies': data.get('available_copies'),
+                'image_url': data.get('image_url')
+            })
+
+        return jsonify({"success": True, "books": book_list}), 200
+
+    except Exception as e:
+        print(f"Error getting books: {e}")
+        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
 
 @app.route('/api/issue-book', methods=['POST'])
 def issue_book_request():
-    """(Student) Creates a request to issue a book."""
-    if (db_error := check_db()): return db_error
+    """Student: Requests to issue a book."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
 
     data = request.get_json()
-    if not data or not all(k in data for k in ('userId', 'bookId')):
-        return jsonify({"success": False, "message": "User ID or Book ID is missing."}), 400
+    user_id = data.get('userId')
+    book_id = data.get('bookId')
 
-    user_id = data['userId']
-    book_id = data['bookId']
+    if not all([user_id, book_id]):
+        return jsonify({"success": False, "message": "Missing user or book ID."}), 400
 
     try:
-        # Check if already requested or issued
-        existing_ref = db.collection(ISSUE_RECORDS_COLLECTION).where('user_id', '==', user_id).where('book_id', '==', book_id).where('return_status', 'in', ['pending_issue', 'issued']).limit(1).get()
-        if existing_ref:
-            return jsonify({"success": False, "message": "You have already requested or issued this book."}), 409
-        
         # Check if book is available
         book_doc = db.collection(BOOKS_COLLECTION).document(book_id).get()
-        if not book_doc.exists or book_doc.to_dict().get('copies_available', 0) == 0:
-            return jsonify({"success": False, "message": "Book is not available for issue."}), 400
+        if not book_doc.exists or book_doc.to_dict().get('available_copies', 0) <= 0:
+            return jsonify({"success": False, "message": "Book is currently out of stock or does not exist."}), 400
 
-        issue_id = str(uuid.uuid4())
+        # Check if user already has a pending request for this book
+        pending_request = db.collection(ISSUES_COLLECTION)\
+                            .where('user_id', '==', user_id)\
+                            .where('book_id', '==', book_id)\
+                            .where('status', '==', 'pending')\
+                            .limit(1).get()
+        
+        if pending_request:
+            return jsonify({"success": False, "message": "You already have a pending request for this book."}), 400
+
+        # Create the issue request
         issue_data = {
-            'issue_id': issue_id,
             'user_id': user_id,
             'book_id': book_id,
-            'request_date': firestore.SERVER_TIMESTAMP,
-            'issue_date': None,
-            'return_date': None,
-            'return_request_date': None,
-            'return_status': 'pending_issue' # Statuses: pending_issue, issued, pending_return, returned
+            'status': 'pending',
+            'request_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
-        db.collection(ISSUE_RECORDS_COLLECTION).document(issue_id).set(issue_data)
-        return jsonify({"success": True, "message": "Book issue request sent."}), 201
-
-    except Exception as e:
-        print(f"Error creating issue request: {e}")
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
-
-@app.route('/api/my-orders', methods=['GET'])
-def get_my_orders():
-    """(Student) Fetches all pending and issued books for the user."""
-    if (db_error := check_db()): return db_error
-
-    user_id = request.args.get('userId')
-    if not user_id:
-        return jsonify({"success": False, "message": "User ID is required."}), 400
-
-    try:
-        orders_ref = db.collection(ISSUE_RECORDS_COLLECTION).where('user_id', '==', user_id).where('return_status', 'in', ['issued', 'pending_issue']).stream()
         
-        orders_list = []
-        for order in orders_ref:
-            order_data = order.to_dict()
-            book_doc = db.collection(BOOKS_COLLECTION).document(order_data['book_id']).get()
-            
-            if book_doc.exists:
-                book_data = book_doc.to_dict()
-                order_data['title'] = book_data.get('title', 'N/A')
-                order_data['author'] = book_data.get('author', 'N/A')
-                order_data['image_url'] = book_data.get('image_url')
-            
-            # Serialize timestamps
-            if 'issue_date' in order_data and order_data['issue_date']:
-                order_data['issue_date'] = order_data['issue_date'].isoformat()
-            if 'request_date' in order_data and order_data['request_date']:
-                order_data['request_date'] = order_data['request_date'].isoformat()
-                
-            orders_list.append(order_data)
-
-        return jsonify({"success": True, "orders": orders_list}), 200
-    except Exception as e:
-        print(f"Error fetching my orders: {e}")
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
-
-@app.route('/api/cancel-request', methods=['POST'])
-def cancel_request():
-    """(Student) Cancels a 'pending_issue' request."""
-    if (db_error := check_db()): return db_error
-
-    data = request.get_json()
-    if not data or 'issueId' not in data:
-        return jsonify({"success": False, "message": "Issue ID is missing."}), 400
-
-    issue_id = data['issueId']
-
-    try:
-        issue_ref = db.collection(ISSUE_RECORDS_COLLECTION).document(issue_id)
-        issue_doc = issue_ref.get()
-
-        if not issue_doc.exists:
-            return jsonify({"success": False, "message": "Request not found."}), 404
-
-        if issue_doc.to_dict().get('return_status') != 'pending_issue':
-            return jsonify({"success": False, "message": "Only pending requests can be cancelled."}), 400
-
-        issue_ref.delete()
-        return jsonify({"success": True, "message": "Request cancelled."}), 200
-
-    except Exception as e:
-        print(f"Error cancelling request: {e}")
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
-
-@app.route('/api/return-book', methods=['POST'])
-def return_book_request():
-    """(Student) Creates a request to return an 'issued' book."""
-    if (db_error := check_db()): return db_error
-
-    data = request.get_json()
-    if 'issueId' not in data:
-        return jsonify({"success": False, "message": "Issue ID is missing."}), 400
-
-    issue_id = data['issueId']
-
-    try:
-        issue_ref = db.collection(ISSUE_RECORDS_COLLECTION).document(issue_id)
-        issue_doc = issue_ref.get()
-
-        if not issue_doc.exists:
-            return jsonify({"success": False, "message": "Issue record not found."}), 404
-        if issue_doc.to_dict().get('return_status') != 'issued':
-            return jsonify({"success": False, "message": "Only issued books can be returned."}), 400
-
-        issue_ref.update({'return_status': 'pending_return', 'return_request_date': firestore.SERVER_TIMESTAMP})
-        return jsonify({"success": True, "message": "Return request sent."}), 201
-
-    except Exception as e:
-        print(f"Error creating return request: {e}")
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
-
-@app.route('/api/returned-books', methods=['GET'])
-def get_returned_books():
-    """(Student) Fetches all 'returned' books for the user."""
-    if (db_error := check_db()): return db_error
-
-    user_id = request.args.get('userId')
-    if not user_id:
-        return jsonify({"success": False, "message": "User ID is required."}), 400
-
-    try:
-        returned_ref = db.collection(ISSUE_RECORDS_COLLECTION).where('user_id', '==', user_id).where('return_status', '==', 'returned').stream()
+        db.collection(ISSUES_COLLECTION).add(issue_data)
         
-        returned_list = []
-        for record in returned_ref:
-            record_data = record.to_dict()
-            book_doc = db.collection(BOOKS_COLLECTION).document(record_data['book_id']).get()
+        return jsonify({"success": True, "message": "Book issue request submitted successfully. Waiting for admin approval."}), 200
 
-            if book_doc.exists:
-                book_data = book_doc.to_dict()
-                record_data['title'] = book_data.get('title', 'N/A')
-                record_data['author'] = book_data.get('author', 'N/A')
-                record_data['image_url'] = book_data.get('image_url')
-
-            if 'issue_date' in record_data and record_data['issue_date']:
-                record_data['issue_date'] = record_data['issue_date'].isoformat()
-            if 'return_date' in record_data and record_data['return_date']:
-                record_data['return_date'] = record_data['return_date'].isoformat()
-                
-            returned_list.append(record_data)
-
-        return jsonify({"success": True, "returned_books": returned_list}), 200
     except Exception as e:
-        print(f"Error fetching returned books: {e}")
+        print(f"Error submitting issue request: {e}")
         return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
-
-# --- Issue & Return Routes (Admin) ---
-
-def fetch_and_join_requests(status_field, status_value):
-    """Helper to fetch issue/return requests and join user/book data."""
-    requests_ref = db.collection(ISSUE_RECORDS_COLLECTION).where(status_field, '==', status_value).stream()
-    requests_list = []
-    
-    for req in requests_ref:
-        req_data = req.to_dict()
-        user_doc = db.collection(USERS_COLLECTION).document(req_data['user_id']).get()
-        book_doc = db.collection(BOOKS_COLLECTION).document(req_data['book_id']).get()
-
-        if user_doc.exists:
-            req_data['username'] = user_doc.to_dict().get('username', 'N/A')
-        if book_doc.exists:
-            req_data['title'] = book_doc.to_dict().get('title', 'N/A')
-            req_data['author'] = book_doc.to_dict().get('author', 'N/A')
-        
-        # Serialize timestamps
-        for date_field in ['request_date', 'issue_date', 'return_request_date']:
-            if date_field in req_data and hasattr(req_data[date_field], 'isoformat'):
-                req_data[date_field] = req_data[date_field].isoformat()
-                
-        requests_list.append(req_data)
-    return requests_list
 
 @app.route('/api/issue-requests', methods=['GET'])
 def get_issue_requests():
-    """(Admin) Fetches all pending book issue requests."""
-    if (db_error := check_db()): return db_error
+    """Admin: Gets a list of all pending issue requests."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
+
     try:
-        requests_list = fetch_and_join_requests('return_status', 'pending_issue')
-        return jsonify({"success": True, "requests": requests_list}), 200
+        requests = db.collection(ISSUES_COLLECTION).where('status', '==', 'pending').get()
+        
+        request_list = []
+        for doc in requests:
+            data = doc.to_dict()
+            book_details = get_book_details(data['book_id'])
+            user_details = db.collection(USERS_COLLECTION).document(data['user_id']).get().to_dict()
+            
+            if book_details and user_details:
+                request_list.append({
+                    'id': doc.id,
+                    'book_title': book_details['title'],
+                    'user_name': user_details['username'],
+                    'request_date': data['request_date']
+                })
+        
+        return jsonify({"success": True, "requests": request_list}), 200
+
     except Exception as e:
-        print(f"Error fetching issue requests: {e}")
+        print(f"Error getting issue requests: {e}")
         return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
 
-@app.route('/api/return-requests', methods=['GET'])
-def get_return_requests():
-    """(Admin) Fetches all pending book return requests."""
-    if (db_error := check_db()): return db_error
-    try:
-        requests_list = fetch_and_join_requests('return_status', 'pending_return')
-        return jsonify({"success": True, "requests": requests_list}), 200
-    except Exception as e:
-        print(f"Error fetching return requests: {e}")
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
-
-@app.route('/api/handle-request', methods=['POST'])
+@app.route('/api/handle-issue-request', methods=['POST'])
 def handle_issue_request():
-    """(Admin) Accepts or rejects a 'pending_issue' request."""
-    if (db_error := check_db()): return db_error
+    """Admin: Handles approval/rejection of issue requests."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
 
     data = request.get_json()
-    if 'issueId' not in data or 'action' not in data:
-        return jsonify({"success": False, "message": "Missing issueId or action."}), 400
+    request_id = data.get('requestId')
+    action = data.get('action') # 'approve' or 'reject'
 
-    issue_id = data['issueId']
-    action = data['action']
+    if not all([request_id, action]):
+        return jsonify({"success": False, "message": "Missing request ID or action."}), 400
 
     try:
-        issue_ref = db.collection(ISSUE_RECORDS_COLLECTION).document(issue_id)
+        issue_ref = db.collection(ISSUES_COLLECTION).document(request_id)
+        issue_doc = issue_ref.get()
+        
+        if not issue_doc.exists or issue_doc.to_dict().get('status') != 'pending':
+            return jsonify({"success": False, "message": "Request not found or already processed."}), 404
 
-        if action == 'accept':
-            book_id = data.get('bookId')
-            if not book_id:
-                return jsonify({"success": False, "message": "Missing bookId for accept."}), 400
-                
-            book_ref = db.collection(BOOKS_COLLECTION).document(book_id)
+        book_id = issue_doc.to_dict()['book_id']
+        book_ref = db.collection(BOOKS_COLLECTION).document(book_id)
 
-            @firestore.transactional
-            def update_in_transaction(transaction, book_ref, issue_ref):
-                book_snapshot = book_ref.get(transaction=transaction)
-                if book_snapshot.to_dict().get('copies_available', 0) > 0:
-                    transaction.update(book_ref, {'copies_available': firestore.Increment(-1)})
-                    transaction.update(issue_ref, {'return_status': 'issued', 'issue_date': firestore.SERVER_TIMESTAMP})
-                    return True
-                return False
-
-            transaction = db.transaction()
-            if update_in_transaction(transaction, book_ref, issue_ref):
-                return jsonify({"success": True, "message": "Request accepted and book issued."}), 200
+        if action == 'approve':
+            # Decrement available copies
+            book_doc = book_ref.get()
+            current_available = book_doc.to_dict().get('available_copies', 0)
+            if current_available > 0:
+                book_ref.update({'available_copies': firestore.Increment(-1)})
+                # Update issue status
+                issue_ref.update({
+                    'status': 'issued',
+                    'issue_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'return_request_date': firestore.DELETE_FIELD # Ensure this field is removed if present
+                })
+                return jsonify({"success": True, "message": "Book issued successfully."}), 200
             else:
-                return jsonify({"success": False, "message": "Book is out of stock."}), 400
+                return jsonify({"success": False, "message": "Book is no longer available."}), 400
 
         elif action == 'reject':
+            # Delete the request
             issue_ref.delete()
-            return jsonify({"success": True, "message": "Request rejected."}), 200
+            return jsonify({"success": True, "message": "Issue request rejected."}), 200
         else:
             return jsonify({"success": False, "message": "Invalid action."}), 400
 
@@ -734,45 +535,157 @@ def handle_issue_request():
         print(f"Error handling issue request: {e}")
         return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
 
-@app.route('/api/handle-return', methods=['POST'])
-def handle_return_request():
-    """(Admin) Accepts or rejects a 'pending_return' request."""
-    if (db_error := check_db()): return db_error
+@app.route('/api/my-orders', methods=['GET'])
+def get_my_orders():
+    """Student: Gets currently issued and pending books."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
 
-    data = request.get_json()
-    if 'issueId' not in data or 'action' not in data:
-        return jsonify({"success": False, "message": "Missing issueId or action."}), 400
-
-    issue_id = data['issueId']
-    action = data['action']
+    user_id = request.args.get('userId')
+    if not user_id:
+        return jsonify({"success": False, "message": "Missing user ID."}), 400
 
     try:
-        issue_ref = db.collection(ISSUE_RECORDS_COLLECTION).document(issue_id)
+        all_issues = db.collection(ISSUES_COLLECTION).where('user_id', '==', user_id).get()
+        
+        issued_books = []
+        pending_requests = []
 
-        if action == 'accept':
-            book_id = data.get('bookId')
-            if not book_id:
-                 return jsonify({"success": False, "message": "Missing bookId for accept."}), 400
-                 
-            book_ref = db.collection(BOOKS_COLLECTION).document(book_id)
+        for doc in all_issues:
+            data = doc.to_dict()
+            book_details = get_book_details(data['book_id'])
+            
+            if not book_details:
+                continue # Skip if book details are missing
 
-            @firestore.transactional
-            def update_in_transaction(transaction, book_ref, issue_ref):
-                # We increment copies even if the book doc doesn't exist,
-                # though it should.
-                transaction.update(book_ref, {'copies_available': firestore.Increment(1)})
-                transaction.update(issue_ref, {'return_status': 'returned', 'return_date': firestore.SERVER_TIMESTAMP})
-                return True
+            book_info = {
+                'issue_id': doc.id,
+                'book_id': data['book_id'],
+                'title': book_details['title'],
+                'author': book_details['author'],
+                'image_url': book_details['image_url']
+            }
 
-            transaction = db.transaction()
-            if update_in_transaction(transaction, book_ref, issue_ref):
-                return jsonify({"success": True, "message": "Return accepted."}), 200
-            else:
-                return jsonify({"success": False, "message": "Error processing return."}), 400
+            if data['status'] == 'issued':
+                book_info['issue_date'] = data['issue_date']
+                book_info['has_return_request'] = 'return_request_date' in data
+                issued_books.append(book_info)
+            elif data['status'] == 'pending':
+                book_info['request_date'] = data['request_date']
+                pending_requests.append(book_info)
+
+        return jsonify({
+            "success": True, 
+            "issued_books": issued_books,
+            "pending_requests": pending_requests
+        }), 200
+
+    except Exception as e:
+        print(f"Error getting my orders: {e}")
+        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
+
+@app.route('/api/return-book', methods=['POST'])
+def return_book_request():
+    """Student: Requests to return an issued book."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
+
+    data = request.get_json()
+    issue_id = data.get('issueId')
+
+    if not issue_id:
+        return jsonify({"success": False, "message": "Missing issue ID."}), 400
+
+    try:
+        issue_ref = db.collection(ISSUES_COLLECTION).document(issue_id)
+        issue_doc = issue_ref.get()
+
+        if not issue_doc.exists or issue_doc.to_dict().get('status') != 'issued':
+            return jsonify({"success": False, "message": "Issued record not found or book is not currently issued."}), 404
+
+        # Check if a return request already exists
+        if 'return_request_date' in issue_doc.to_dict():
+            return jsonify({"success": False, "message": "A return request has already been submitted for this book."}), 400
+        
+        # Submit return request (by adding a timestamp to the issue document)
+        issue_ref.update({
+            'return_request_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+
+        return jsonify({"success": True, "message": "Return request submitted successfully. Waiting for admin approval."}), 200
+
+    except Exception as e:
+        print(f"Error submitting return request: {e}")
+        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
+
+@app.route('/api/return-requests', methods=['GET'])
+def get_return_requests():
+    """Admin: Gets a list of all pending return requests."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
+
+    try:
+        # Find all issued books that have a return request date set
+        requests = db.collection(ISSUES_COLLECTION).where('status', '==', 'issued')\
+                     .where('return_request_date', '!=', None).get()
+        
+        request_list = []
+        for doc in requests:
+            data = doc.to_dict()
+            book_details = get_book_details(data['book_id'])
+            user_details = db.collection(USERS_COLLECTION).document(data['user_id']).get().to_dict()
+            
+            if book_details and user_details:
+                request_list.append({
+                    'id': doc.id,
+                    'book_title': book_details['title'],
+                    'user_name': user_details['username'],
+                    'request_date': data['return_request_date']
+                })
+        
+        return jsonify({"success": True, "requests": request_list}), 200
+
+    except Exception as e:
+        print(f"Error getting return requests: {e}")
+        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
+
+@app.route('/api/handle-return-request', methods=['POST'])
+def handle_return_request():
+    """Admin: Handles approval/rejection of return requests."""
+    if not db:
+        return jsonify({"success": False, "message": "Backend not initialized."}), 500
+
+    data = request.get_json()
+    issue_id = data.get('requestId')
+    action = data.get('action') # 'approve' or 'reject'
+
+    if not all([issue_id, action]):
+        return jsonify({"success": False, "message": "Missing request ID or action."}), 400
+
+    try:
+        issue_ref = db.collection(ISSUES_COLLECTION).document(issue_id)
+        issue_doc = issue_ref.get()
+        
+        if not issue_doc.exists or 'return_request_date' not in issue_doc.to_dict():
+            return jsonify({"success": False, "message": "Return request not found or not pending."}), 404
+
+        book_id = issue_doc.to_dict()['book_id']
+        book_ref = db.collection(BOOKS_COLLECTION).document(book_id)
+
+        if action == 'approve':
+            # Increment available copies
+            book_ref.update({'available_copies': firestore.Increment(1)})
+            # Update issue status (marks as returned) and record return date
+            issue_ref.update({
+                'status': 'returned',
+                'return_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'return_request_date': firestore.DELETE_FIELD
+            })
+            return jsonify({"success": True, "message": "Book return approved. Copies updated."}), 200
 
         elif action == 'reject':
-            # Reset status to 'issued'
-            issue_ref.update({'return_status': 'issued', 'return_request_date': firestore.DELETE_FIELD})
+            # Remove the return request marker
+            issue_ref.update({'return_request_date': firestore.DELETE_FIELD})
             return jsonify({"success": True, "message": "Return request rejected."}), 200
         else:
             return jsonify({"success": False, "message": "Invalid action."}), 400
@@ -781,27 +694,34 @@ def handle_return_request():
         print(f"Error handling return request: {e}")
         return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
 
-# --- Static File Serving ---
+# --- Static File Serving (For Vercel and Local) ---
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     """Serves files from the UPLOAD_FOLDER."""
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
+# --- Root/Home Route ---
+
 @app.route('/', methods=['GET'])
 def home():
-    """Redirects the root URL to login.html (assuming it's in 'public')."""
-    return redirect('/login.html')
+    """A simple route to confirm that the server is running."""
+    if not firebase_app:
+        return jsonify({
+            "message": "Python backend is running, but Firebase failed to initialize! Check your firebase-service-account.json path.",
+            "status": "error"
+        }), 500
 
-@app.route('/<path:path>')
-def serve_public_files(path):
-    """Serves static files from the 'public' directory."""
-    return send_from_directory('public', path)
+    return jsonify({
+        "message": "Python backend is running! Firebase initialized successfully.",
+        "status": "ok"
+    })
+
+# --- Vercel Requirement ---
+# The server run block is intentionally removed here.
+# Vercel will import the 'app' object directly.
 
 if not db:
     print("---")
-    print("CRITICAL: Firebase DB not initialized. Server is running but API calls will fail.")
-    print("Please check your FIREBASE_SA_FILE path in the .env file.")
+    print("CRITICAL: Firebase database not initialized. All Firestore operations will fail.")
     print("---")
-else:
-    print("Flask app object created. Ready for Vercel.")
