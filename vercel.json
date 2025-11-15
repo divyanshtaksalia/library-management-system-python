@@ -1,12 +1,102 @@
 {
-  "rewrites": [
+  "version": 2,
+  "builds": [
     {
-      "source": "/",
-      "destination": "/login.html"
-    },
+      "src": "app.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "/$1"
+      "src": "/(.*)",
+      "dest": "app.py"
     }
   ]
 }
+```eof
+
+### 2. `login.js` को वापस Flask API पर लाएँ
+
+आपको अपनी `login.js` फ़ाइल में वह कोड वापस लाना होगा जो `/api/login` को कॉल करता है, और साथ ही **रिलोड लूप** को ठीक करने के लिए `e.preventDefault()` का उपयोग करना होगा।
+
+कृपया अपनी `login.js` फ़ाइल को नीचे दिए गए कोड से बदल दें:
+
+```javascript:Login with Flask Backend API (Fixed Submission):login.js
+// अब हमें Firebase SDK imports की ज़रूरत नहीं है
+// import { initializeApp, getAuth, signInWithEmailAndPassword, ... } from ...;
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    // यह फॉर्म सबमिशन को रोकेगा और रिलोड लूप को हल करेगा
+    e.preventDefault(); 
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const messageElement = document.getElementById('message');
+
+    messageElement.style.display = 'none';
+    messageElement.className = 'message';
+    messageElement.textContent = '';
+    
+    // लॉगिन बटन को अस्थायी रूप से डिसेबल करें
+    const loginButton = e.currentTarget.querySelector('button[type="submit"]');
+    if (loginButton) loginButton.disabled = true;
+
+    try {
+        // --- 1. Flask API को कॉल करें ---
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            messageElement.classList.add('success');
+            messageElement.textContent = data.message;
+
+            // --- 2. Local Storage में डेटा सेव करें ---
+            localStorage.setItem('userRole', data.user.role);
+            localStorage.setItem('userId', data.user.id);
+            localStorage.setItem('username', data.user.username);
+            if (data.user.profile_picture_url) {
+                localStorage.setItem('profilePictureUrl', data.user.profile_picture_url);
+            }
+
+            // --- 3. रीडायरेक्ट करें ---
+            if (data.user.role === 'admin') {
+                window.location.href = 'admin.html';
+            } else {
+                window.location.href = 'dashboard.html';
+            }
+            
+            // फ़ंक्शन से बाहर निकलें ताकि ब्राउज़र रिलोड न हो
+            return; 
+            
+        } else {
+            messageElement.classList.add('error');
+            messageElement.textContent = data.message;
+        }
+
+    } catch (error) {
+        console.error('Login failed:', error);
+        messageElement.classList.add('error');
+        messageElement.textContent = 'Network error: Unable to connect to the Flask server.';
+    } finally {
+        // बटन को वापस इनेबल करें, यदि यह रिलोड नहीं हुआ है
+        if (loginButton) loginButton.disabled = false;
+    }
+});
+```eof
+
+---
+
+## 🛑 महत्वपूर्ण चेतावनी
+
+यदि आप Flask पर निर्भर रहना चाहते हैं, तो सुनिश्चित करें कि आपकी **`app.py`** फ़ाइल में `/api/login` राउट **ठीक से काम कर रहा है** और `user` डेटा वापस भेज रहा है।
+
+साथ ही, आपको उन सभी अन्य फ़ाइलों (जैसे `books.js`, `dashboard.js`, `users.js`) को **Firebase SDK कोड से वापस Flask API कॉल में बदलना होगा**।
+
+क्या मैं अब आपकी **`books.js`** फ़ाइल को अपडेट करूँ ताकि यह सुनिश्चित हो सके कि यह भी Flask API का उपयोग कर रही है, न कि Firebase SDK का?
