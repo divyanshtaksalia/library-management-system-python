@@ -1,4 +1,3 @@
-
 const booksContainer = document.getElementById('booksList');
 const addBookForm = document.getElementById('addBookForm');
 const returnRequestsList = document.getElementById('returnRequestsList');
@@ -32,7 +31,8 @@ function setButtonLoading(button, isLoading, originalText) {
 async function loadUsers() {
     if (!usersList) return;
     try {
-        const response = await fetch('http://127.0.0.1:5001/api/users');
+        // FIXED: Using relative URL /api/users
+        const response = await fetch('/api/users'); 
         const data = await response.json();
         if (data.success) {
             renderUsers(data.users);
@@ -103,9 +103,8 @@ async function showUserDetails(userId) {
     modal.style.display = 'block';
 
     try {
-        // This endpoint needs to be created on the backend.
-        // It should return user details and their issued books.
-        const response = await fetch(`/api/user-details/${userId}`);
+        // Correct: Using relative URL /api/user-details/
+        const response = await fetch(`/api/user-details/${userId}`); 
         const data = await response.json();
 
         if (data.success) {
@@ -169,9 +168,10 @@ function setupUserStatusListeners() {
             }
 
             try {
+        // Correct: Using relative URL /api/users/
         const response = await fetch(`/api/users/${userId}`, {
-                    method: 'DELETE'
-                });
+                        method: 'DELETE'
+                    });
                 const data = await response.json();
                 alert(data.message);
                 if (data.success) {
@@ -188,11 +188,12 @@ function setupUserStatusListeners() {
             const actionText = newStatus === 'blocked' ? 'Block' : 'Activate';
 
             try {
+        // Correct: Using relative URL /api/users/status
         const response = await fetch('/api/users/status', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: userId, status: newStatus })
-                });
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: userId, status: newStatus })
+                    });
                 const data = await response.json();
                 alert(data.message);
                 if (data.success) {
@@ -212,11 +213,15 @@ function setupUserStatusListeners() {
 async function loadBooks(showAdminTools = false) {
     showBookSkeleton();
     const userId = localStorage.getItem('userId');
-    const url = new URL('http://127.0.0.1:5001/api/books');
-    if (userId) url.searchParams.append('userId', userId);
+    
+    // FIXED: Constructing the URL using a relative path
+    let fetchUrl = '/api/books';
+    if (userId) {
+        fetchUrl += `?userId=${userId}`;
+    }
 
     try {
-        const response = await fetch(url);
+        const response = await fetch(fetchUrl);
         const data = await response.json();
         if (data.success) {
             renderBooks(data.books, showAdminTools);
@@ -249,6 +254,7 @@ function renderBooks(books, showAdminTools) {
         <div class="book-item ${book.display_status}">
             <div class="book-image">
                 ${book.image_url ?
+                    // Image URL is correct as it points to /uploads/<filename>
                     `<img src="${book.image_url}" alt="${book.title} cover">` :
                     `<div class="no-image"><i class="fas fa-book"></i></div>`
                 }
@@ -324,7 +330,8 @@ function setupDeleteListeners() {
             }
 
             try {
-                const response = await fetch(`http://127.0.0.1:5001/api/books/${bookId}`, { method: 'DELETE' });
+                // FIXED: Using relative URL /api/books/
+                const response = await fetch(`/api/books/${bookId}`, { method: 'DELETE' });
                 const data = await response.json();
                 alert(data.message);
                 if (data.success) {
@@ -354,11 +361,12 @@ function setupIssueListeners() {
             }
 
             try {
+        // Correct: Using relative URL /api/issue-book
         const response = await fetch('/api/issue-book', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: userId, bookId: bookId })
-                });
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: userId, bookId: bookId })
+                    });
 
                 const data = await response.json();
                 alert(data.message);
@@ -391,6 +399,7 @@ function showReturnRequestSkeleton() {
 async function loadReturnRequests() {
     if (!returnRequestsList) return;
     try {
+        // Correct: Using relative URL /api/return-requests
         const response = await fetch('/api/return-requests');
         const data = await response.json();
         if (data.success) {
@@ -459,6 +468,7 @@ function renderReturnRequests(requests) {
 async function loadIssueRequests() {
     if (!issueRequestsList) return;
     try {
+        // Correct: Using relative URL /api/issue-requests
         const response = await fetch('/api/issue-requests');
         const data = await response.json();
         if (data.success) {
@@ -532,11 +542,12 @@ function setupIssueRequestListeners() {
             const action = e.target.dataset.action;
 
             try {
+        // Correct: Using relative URL /api/handle-request
         const response = await fetch('/api/handle-request', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ issueId, bookId, action }) // Add bookId to the request body
-                });
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ issueId, bookId, action }) // Add bookId to the request body
+                    });
                 const data = await response.json();
                 alert(data.message);
                 if (data.success) {
@@ -565,11 +576,12 @@ function setupReturnRequestListeners() {
             }
 
             try {
+        // Correct: Using relative URL /api/handle-return
         const response = await fetch('/api/handle-return', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ issueId, bookId, action })
-                });
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ issueId, bookId, action })
+                    });
 
                 const data = await response.json();
                 alert(data.message);
@@ -639,10 +651,11 @@ window.updateBookImage = async function(bookId) {
             formData.append('bookId', bookId);
 
             try {
-                const response = await fetch('/api/books/update-image', {
-                    method: 'POST',
-                    body: formData
-                });
+        // Correct: Using relative URL /api/books/update-image
+        const response = await fetch('/api/books/update-image', {
+                        method: 'POST',
+                        body: formData
+                    });
                 const data = await response.json();
                 if (data.success) {
                     loadBooks(true);
@@ -675,7 +688,8 @@ window.editBook = async function(bookId) {
     }
 
     try {
-        const response = await fetch(`http://127.0.0.1:5001/api/books/${bookId}`, {
+        // FIXED: Using relative URL /api/books/
+        const response = await fetch(`/api/books/${bookId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -707,6 +721,7 @@ window.updateCopies = async function(bookId) {
     }
 
     try {
+        // Correct: Using relative URL /api/books/update-copies
         const response = await fetch('/api/books/update-copies', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -723,7 +738,8 @@ window.updateCopies = async function(bookId) {
 window.deleteBook = async function(bookId) {
     if (confirm('Are you sure you want to delete this book?')) {
         try {
-            const response = await fetch(`http://127.0.0.1:5001/api/books/${bookId}`, {
+            // FIXED: Using relative URL /api/books/
+            const response = await fetch(`/api/books/${bookId}`, {
                 method: 'DELETE'
             });
             const data = await response.json();
@@ -761,7 +777,8 @@ if (addBookForm) {
         }
 
         try {
-            const response = await fetch('http://127.0.0.1:5001/api/books', {
+            // FIXED: Using relative URL /api/books
+            const response = await fetch('/api/books', {
                 method: 'POST',
                 body: formData
             });
