@@ -1,4 +1,3 @@
-
 const booksContainer = document.getElementById('booksList');
 const addBookForm = document.getElementById('addBookForm');
 const returnRequestsList = document.getElementById('returnRequestsList');
@@ -32,7 +31,7 @@ function setButtonLoading(button, isLoading, originalText) {
 async function loadUsers() {
     if (!usersList) return;
     try {
-        const response = await fetch('http://127.0.0.1:5001/api/users');
+        const response = await fetch('/api/users');
         const data = await response.json();
         if (data.success) {
             renderUsers(data.users);
@@ -103,8 +102,6 @@ async function showUserDetails(userId) {
     modal.style.display = 'block';
 
     try {
-        // This endpoint needs to be created on the backend.
-        // It should return user details and their issued books.
         const response = await fetch(`/api/user-details/${userId}`);
         const data = await response.json();
 
@@ -169,7 +166,8 @@ function setupUserStatusListeners() {
             }
 
             try {
-        const response = await fetch(`/api/users/${userId}`, {
+                
+                const response = await fetch(`/api/users/${userId}`, {
                     method: 'DELETE'
                 });
                 const data = await response.json();
@@ -188,7 +186,8 @@ function setupUserStatusListeners() {
             const actionText = newStatus === 'blocked' ? 'Block' : 'Activate';
 
             try {
-        const response = await fetch('/api/users/status', {
+                
+                const response = await fetch('/api/users/status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: userId, status: newStatus })
@@ -204,7 +203,9 @@ function setupUserStatusListeners() {
         }
         else if (targetRow) {
             // If the click is on the row itself (but not a button), show details
-            showUserDetails(targetRow.dataset.userId);
+            // NOTE: This will fail until you create the /api/user-details/:id endpoint in app.py
+            // showUserDetails(targetRow.dataset.userId); 
+            console.log("User row clicked, showUserDetails is commented out until endpoint is built.");
         }
     });
 }
@@ -212,7 +213,9 @@ function setupUserStatusListeners() {
 async function loadBooks(showAdminTools = false) {
     showBookSkeleton();
     const userId = localStorage.getItem('userId');
-    const url = new URL('http://127.0.0.1:5001/api/books');
+    
+    
+    const url = new URL('/api/books', window.location.origin);
     if (userId) url.searchParams.append('userId', userId);
 
     try {
@@ -316,6 +319,7 @@ function renderBooks(books, showAdminTools) {
 }
 
 function setupDeleteListeners() {
+    if (!booksContainer) return;
     booksContainer.addEventListener('click', async (e) => {
         if (e.target.classList.contains('btn-delete')) {
             const bookId = e.target.dataset.id;
@@ -324,7 +328,8 @@ function setupDeleteListeners() {
             }
 
             try {
-                const response = await fetch(`http://127.0.0.1:5001/api/books/${bookId}`, { method: 'DELETE' });
+                
+                const response = await fetch(`/api/books/${bookId}`, { method: 'DELETE' });
                 const data = await response.json();
                 alert(data.message);
                 if (data.success) {
@@ -338,6 +343,7 @@ function setupDeleteListeners() {
 }
 
 function setupIssueListeners() {
+    if (!booksContainer) return;
     booksContainer.addEventListener('click', async (e) => {
         if (e.target.classList.contains('btn-order')) {
             const bookId = e.target.dataset.id;
@@ -354,7 +360,8 @@ function setupIssueListeners() {
             }
 
             try {
-        const response = await fetch('/api/issue-book', {
+                
+                const response = await fetch('/api/issue-book', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: userId, bookId: bookId })
@@ -391,6 +398,7 @@ function showReturnRequestSkeleton() {
 async function loadReturnRequests() {
     if (!returnRequestsList) return;
     try {
+        
         const response = await fetch('/api/return-requests');
         const data = await response.json();
         if (data.success) {
@@ -497,7 +505,7 @@ function renderIssueRequests(requests) {
                         <td>${request.title}</td>
                         <td>${request.author}</td>
                         <td>${request.username}</td>
-                        <td>${new Date(request.issue_date).toLocaleDateString()}</td>
+                        <td>${new Date(request.request_date).toLocaleDateString()}</td>
                         <td class="request-actions">
                             <button 
                                 data-issue-id="${request.issue_id}" 
@@ -532,7 +540,7 @@ function setupIssueRequestListeners() {
             const action = e.target.dataset.action;
 
             try {
-        const response = await fetch('/api/handle-request', {
+                const response = await fetch('/api/handle-request', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ issueId, bookId, action }) // Add bookId to the request body
@@ -565,7 +573,7 @@ function setupReturnRequestListeners() {
             }
 
             try {
-        const response = await fetch('/api/handle-return', {
+                const response = await fetch('/api/handle-return', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ issueId, bookId, action })
@@ -675,7 +683,7 @@ window.editBook = async function(bookId) {
     }
 
     try {
-        const response = await fetch(`http://127.0.0.1:5001/api/books/${bookId}`, {
+        const response = await fetch(`/api/books/${bookId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -723,7 +731,7 @@ window.updateCopies = async function(bookId) {
 window.deleteBook = async function(bookId) {
     if (confirm('Are you sure you want to delete this book?')) {
         try {
-            const response = await fetch(`http://127.0.0.1:5001/api/books/${bookId}`, {
+            const response = await fetch(`/api/books/${bookId}`, {
                 method: 'DELETE'
             });
             const data = await response.json();
@@ -761,7 +769,7 @@ if (addBookForm) {
         }
 
         try {
-            const response = await fetch('http://127.0.0.1:5001/api/books', {
+            const response = await fetch('/api/books', {
                 method: 'POST',
                 body: formData
             });
