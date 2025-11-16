@@ -14,9 +14,9 @@ import json
 # 1. Load environment variables from .env file
 load_dotenv()
 
-# --- Removing Base Directory Logic (Vercel handles this now) ---
-# BASE_DIR = os.path.dirname(os.path.abspath(_file_))
-# STATIC_FOLDER = os.path.join(BASE_DIR, 'public')
+
+BASE_DIR = os.path.dirname(os.path.abspath(_file_))
+STATIC_FOLDER = os.path.join(BASE_DIR, 'public')
 
 
 def initialize_firebase():
