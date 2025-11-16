@@ -14,9 +14,9 @@ import json
 # 1. Load environment variables from .env file
 load_dotenv()
 
-
-BASE_DIR = os.path.dirname(os.path.abspath(_file_))
-STATIC_FOLDER = os.path.join(BASE_DIR, 'public')
+# --- Removing Base Directory Logic (Vercel handles this now) ---
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# STATIC_FOLDER = os.path.join(BASE_DIR, 'public')
 
 
 def initialize_firebase():
@@ -63,7 +63,7 @@ def initialize_firebase():
 firebase_app, db = initialize_firebase()
 
 # 3. Create Flask App
-app = Flask(_name_)
+app = Flask(__name__)
 CORS(app)
 
 # 4. Firestore Collection Names
@@ -717,8 +717,6 @@ def delete_user(user_id):
         return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
 
 
-
-# --- Vercel Startup ---
 
 if not db:
     print("---")
