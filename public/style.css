@@ -1191,3 +1191,40 @@ a:hover {
 .card-skeleton .skeleton-line:last-child {
     margin-bottom: 0;
 }
+
+/* Mobile responsiveness for login page */
+@media (max-width: 480px) {
+    .auth-container {
+        padding: 15px 20px;
+        max-width: 100%;
+        margin: 0 10px;
+    }
+
+    .auth-container h1 {
+        font-size: 1.2em;
+        margin-bottom: 15px;
+    }
+
+    .auth-container input[type="email"],
+    .auth-container input[type="password"] {
+        padding: 10px;
+        font-size: 12px;
+        margin-bottom: 12px;
+    }
+
+    .auth-container button {
+        padding: 10px 15px;
+        font-size: 12px;
+        margin-top: 8px;
+    }
+
+    .auth-container .message {
+        padding: 8px;
+        margin-bottom: 12px;
+        font-size: 12px;
+    }
+
+    .auth-container p {
+        font-size: 12px;
+    }
+}
