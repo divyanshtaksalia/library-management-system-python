@@ -214,11 +214,10 @@
                 });
             }
 
-            // Hide main nav when dropdown nav-links are clicked
-            const dropdownLinks = document.querySelectorAll('.nav-link[onclick*="toggleDropdown"]');
-            dropdownLinks.forEach(link => {
+            // Hide main nav when dropdown menu items are clicked
+            const dropdownMenuLinks = document.querySelectorAll('.dropdown-menu a');
+            dropdownMenuLinks.forEach(link => {
                 link.addEventListener('click', () => {
-                    navList.classList.toggle('show');
                     navList.classList.remove('show');
                 });
             });
