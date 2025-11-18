@@ -218,6 +218,7 @@
             const dropdownLinks = document.querySelectorAll('.nav-link[onclick*="toggleDropdown"]');
             dropdownLinks.forEach(link => {
                 link.addEventListener('click', () => {
+                    navList.classList.toggle('show');
                     navList.classList.remove('show');
                 });
             });
