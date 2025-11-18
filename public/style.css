@@ -352,6 +352,22 @@ body.auth-page {
         box-sizing: border-box;
         text-align: left;
     }
+    .nav-list .dropdown-menu {
+        position: static;
+        display: none;
+        width: 100%;
+        box-shadow: none;
+        border-radius: 0;
+        padding: 0;
+        margin-top: 5px;
+    }
+    .nav-list .dropdown-menu.show {
+        display: block;
+    }
+    .nav-list .dropdown-menu li a {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
     .nav-toggle {
         display: inline-flex;
         order: 1;
@@ -1226,5 +1242,35 @@ a:hover {
 
     .auth-container p {
         font-size: 12px;
+    }
+}
+
+/* Mobile responsiveness for book list items */
+@media (max-width: 480px) {
+    .book-item {
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+
+    .book-image {
+        width: 60px;
+        height: 84px;
+    }
+
+    .book-title {
+        font-size: 1em;
+        margin-bottom: 3px;
+    }
+
+    .book-author,
+    .book-status {
+        font-size: 0.8em;
+        margin-bottom: 3px;
+    }
+
+    .book-actions button {
+        padding: 6px 12px;
+        font-size: 12px;
+        min-width: 80px;
     }
 }
