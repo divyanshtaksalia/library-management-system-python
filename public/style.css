@@ -7,7 +7,7 @@
     --secondary-gradient: linear-gradient(135deg, #a0522d 0%, #8b4513 100%);
     --accent-color: #f6e05e; /* Brighter gold for highlights */
     --accent-gradient: linear-gradient(135deg, #f6e05e 0%, #d69e2e 100%);
-    --background-color: linear-gradient(135deg, #e6fffa 0%, #969b9c 50%, #a2a6a5 100%);
+    --background-color: rgb(237, 241, 241);
     --text-color: #1a202c;
     --text-light: #4a5568;
     --error-color: #e53e3e;
