@@ -117,21 +117,23 @@
                                 style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;"
                                 oninput="document.getElementById('urlPreviewImg').src = this.value; document.getElementById('urlPreviewImg').style.display = 'block';">
     
-                        <div style="margin-top: 10px; text-align: center; height: 150px; background: #f9f9f9; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center;">
+                        <div style="margin-top: 10px; text-align: center; height: 250px; background: #f9f9f9; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center;">
                             <span id="previewPlaceholder" style="color: #ccc;">Image Preview</span>
                             <img id="urlPreviewImg" src="" alt="Book Preview" 
                                 style="max-height: 100%; max-width: 100%; display: none;" 
                                 onerror="this.style.display='none'">
                         </div>
                         <input type="url" id="bookpdflink" placeholder="Paste Book PDF URL here (https://...)" 
-                                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;"
+                                style="margin-top: 10px;width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;"
                                 oninput="document.getElementById('urlpdf').src = this.value; document.getElementById('urlpdf').style.display = 'block';">
+    
                     </div>
                     <div class="form-fields">
                         <input type="text" id="newTitle" placeholder="Book Title" required>
                         <input type="text" id="newAuthor" placeholder="Author Name" required>
                         <input type="text" id="newCategory" placeholder="Book Category" required>
-                        <input type="number" id="newCopies" placeholder="Number of Copies" required min="1" value="1">
+                        <p style="padding: none;margin: none;">Books Copies</p>
+                        <input type="number" id="newCopies" style="margin-top: 10px;width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;" placeholder="Number of Copies" required min="1" value="1">
                         <button type="submit"><i class="fas fa-plus"></i> Add Book</button>
                     </div>
                 </form>
