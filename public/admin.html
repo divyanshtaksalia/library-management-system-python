@@ -112,16 +112,16 @@
             <div id="addBookSection" class="admin-section">
                 <h3><i class="fas fa-book-medical"></i> Add Book</h3>
                 <form id="addBookForm">
-                    <div class="form-image-preview">
-                        <div class="image-preview" id="imagePreview">
-                            <i class="fas fa-book-open placeholder-icon"></i>
-                            <img src="" alt="Book cover" style="display: none;">
-                        </div>
-                        <div class="image-upload-controls">
-                            <label for="bookImage" class="upload-btn">
-                                <i class="fas fa-upload"></i> Choose Cover Image
-                            </label>
-                            <input type="file" id="bookImage" accept="image/*" style="display: none;">
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <input type="url" id="newImageLink" placeholder="Paste Image URL here (https://...)" 
+                                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;"
+                                oninput="document.getElementById('urlPreviewImg').src = this.value; document.getElementById('urlPreviewImg').style.display = 'block';">
+    
+                        <div style="margin-top: 10px; text-align: center; height: 150px; background: #f9f9f9; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center;">
+                            <span id="previewPlaceholder" style="color: #ccc;">Image Preview</span>
+                            <img id="urlPreviewImg" src="" alt="Book Preview" 
+                                style="max-height: 100%; max-width: 100%; display: none;" 
+                                onerror="this.style.display='none'">
                         </div>
                     </div>
                     <div class="form-fields">
