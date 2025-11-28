@@ -209,33 +209,39 @@ def get_books():
 
 @app.route('/api/books', methods=['POST'])
 def add_book():
-    """(Admin) Adds a new book (text only)."""
+    """(Admin) Adds a new book (includes image link)."""
     if (db_error := check_db()): return db_error
 
     try:
-        # Using request.form because frontend might still send FormData
-        if 'title' not in request.form or 'author' not in request.form:
-             # Fallback to JSON if not FormData
-            data = request.get_json()
-            if not data or 'title' not in data or 'author' not in data:
-                return jsonify({"success": False, "message": "Missing required fields (title, author)."}), 400
-            title = data['title']
-            author = data['author']
-            category = data.get('category', 'Uncategorized')
-            total_copies = int(data.get('copies', 1))
-        else:
-            title = request.form['title']
-            author = request.form['author']
-            category = request.form.get('category', 'Uncategorized')
-            total_copies = int(request.form.get('copies', 1))
+        # We prefer JSON now since we aren't uploading files
+        data = request.get_json()
+        
+        # Fallback if frontend still sends as form data
+        if not data:
+            data = request.form
 
+        if not data or 'title' not in data or 'author' not in data:
+            return jsonify({"success": False, "message": "Missing required fields (title, author)."}), 400
+            
+        title = data['title']
+        author = data['author']
+        category = data.get('category', 'Uncategorized')
+        total_copies = int(data.get('copies', 1))
+        
+        # --- NEW: Get the Image URL from the request ---
+        image_url = data.get('image_url', None) 
+        # -----------------------------------------------
 
         book_id = str(uuid.uuid4())
 
         book_data = {
-            'book_id': book_id, 'title': title, 'author': author,
-            'category': category, 'total_copies': total_copies,
-            'copies_available': total_copies, 'image_url': None,
+            'book_id': book_id, 
+            'title': title, 
+            'author': author,
+            'category': category, 
+            'total_copies': total_copies,
+            'copies_available': total_copies, 
+            'image_url': image_url, # Save the link here
             'created_at': firestore.SERVER_TIMESTAMP
         }
         
