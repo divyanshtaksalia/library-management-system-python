@@ -748,51 +748,46 @@ window.deleteBook = async function(bookId) {
 if (addBookForm) {
     addBookForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const submitButton = addBookForm.querySelector('button[type="submit"]');
-        const originalButtonText = submitButton.innerHTML;
-        setButtonLoading(submitButton, true, originalButtonText);
 
-        const title = document.getElementById('newTitle').value;
-        const author = document.getElementById('newAuthor').value;
-        const category = document.getElementById('newCategory').value;
-        const copies = document.getElementById('newCopies').value;
-        const imageInput = document.getElementById('bookImage');
-        
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('author', author);
-        formData.append('category', category);
-        formData.append('copies', copies);
-        
-        if (imageInput.files[0]) {
-            formData.append('image', imageInput.files[0]);
-        }
+        // GET THE IMAGE LINK
+        const imageLink = document.getElementById('newImageLink').value; 
+
+        const bookData = {
+            title: document.getElementById('newTitle').value,
+            author: document.getElementById('newAuthor').value,
+            category: document.getElementById('newCategory').value,
+            copies: document.getElementById('newCopies').value,
+            image_url: imageLink 
+        };
 
         try {
             const response = await fetch('/api/books', {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify(bookData)
             });
 
             const data = await response.json();
-            alert(data.message);
-
             if (data.success) {
+                alert('Book added successfully!');
+                
+                // Reset form and hide preview
                 addBookForm.reset();
-                // Reset image preview
-                const preview = document.getElementById('imagePreview');
-                preview.querySelector('img').src = '';
-                preview.querySelector('img').style.display = 'none';
-                preview.querySelector('.placeholder-icon').style.display = 'block';
-                loadBooks(true);
+                const previewImg = document.getElementById('urlPreviewImg');
+                if (previewImg) previewImg.style.display = 'none';
+
+                // Reload books list if the function exists
+                if (typeof loadBooks === 'function') {
+                    loadBooks(true);
+                }
             } else {
-                console.error('Error adding book:', data); // Log full error data
+                alert(data.message);
             }
         } catch (error) {
-            alert('Network error while adding new book.');
-            console.error('Network error:', error);
-        } finally {
-            setButtonLoading(submitButton, false, originalButtonText);
+            console.error('Error:', error);
+            alert('An error occurred while adding the book.');
         }
     });
 }
