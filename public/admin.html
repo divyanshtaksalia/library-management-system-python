@@ -123,6 +123,9 @@
                                 style="max-height: 100%; max-width: 100%; display: none;" 
                                 onerror="this.style.display='none'">
                         </div>
+                        <input type="url" id="bookpdflink" placeholder="Paste Book PDF URL here (https://...)" 
+                                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;"
+                                oninput="document.getElementById('urlpdf').src = this.value; document.getElementById('urlpdf').style.display = 'block';">
                     </div>
                     <div class="form-fields">
                         <input type="text" id="newTitle" placeholder="Book Title" required>
