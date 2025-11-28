@@ -280,7 +280,7 @@ def delete_book(book_id):
 
 @app.route('/api/books/<string:book_id>', methods=['PUT'])
 def update_book_details(book_id):
-    """(Admin) Updates a book's details (title, author, category)."""
+    """(Admin) Updates a book's details (title, author, category, AND image)."""
     if (db_error := check_db()): return db_error
 
     try:
@@ -294,12 +294,20 @@ def update_book_details(book_id):
             return jsonify({"success": False, "message": "Book not found."}), 404
 
         update_data = {}
+        
+        # Check for all fields including image_url
         if 'title' in data and data['title']:
             update_data['title'] = data['title']
         if 'author' in data and data['author']:
             update_data['author'] = data['author']
         if 'category' in data and data['category']:
             update_data['category'] = data['category']
+        
+        if 'image_url' in data: # Allow updating the image link
+            update_data['image_url'] = data['image_url']
+
+        if not update_data:
+             return jsonify({"success": False, "message": "No valid fields to update."}), 400
 
         book_ref.update(update_data)
 
