@@ -635,37 +635,37 @@ document.addEventListener('click', function(e) {
 
 // Book action functions
 window.updateBookImage = async function(bookId) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.style.display = 'none'; // Hide the input element
-    input.accept = 'image/*';
-    input.onchange = async function(e) {
-        const file = e.target.files[0];
-        if (file) {
-            const formData = new FormData();
-            formData.append('image', file);
-            formData.append('bookId', bookId);
+    // 1. Prompt the user for the new Image URL
+    const newImageUrl = prompt("Enter the new Image URL:");
 
-            try {
-                const response = await fetch('/api/books/update-image', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await response.json();
-                if (data.success) {
-                    loadBooks(true);
-                } else {
-                    alert(data.message);
-                    console.error('Error updating book image:', data); // Log full error data
-                }
-                alert(data.message);
-            } catch (error) {
-                alert('Error updating book image');
-                console.error('Network error updating image:', error);
-            }
+    if (newImageUrl === null || newImageUrl.trim() === "") {
+        return;
+    }
+
+    try {
+    
+        const response = await fetch(`/api/books/${bookId}`, {
+            method: 'PUT',
+            headers: { 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ 
+                image_url: newImageUrl 
+            })
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            loadBooks(true); 
+        } else {
+            alert(data.message);
         }
-    };
-    input.click();
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Network error while updating book image.');
+    }
 };
 
 window.editBook = async function(bookId) {
