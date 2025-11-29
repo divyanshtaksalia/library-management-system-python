@@ -291,7 +291,7 @@ function renderBooks(books, showAdminTools) {
                     <button data-id="${book.book_id}" class="btn-order" ${book.display_status !== 'available' ? 'disabled' : ''} data-status="${book.display_status}">
                         ${book.display_status === 'available' ? '📖 Issue Now' : (book.display_status === 'pending_issue' ? 'Request Sent' : 'Currently Issued')}
                     </button>
-                    <button data-id="${book.book_id}" class="open-pdf-btn" href="${book.book_pdf_url}" target="_blank">
+                    <button book-pdf-url-data="${book.book_id}" class="open-pdf-btn" href="${book.book_pdf_url}" target="_blank" ${book.book_pdf_url ? '' : 'disabled'}>
                         Read
                     </button>
                 `} 
