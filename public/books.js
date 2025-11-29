@@ -291,9 +291,11 @@ function renderBooks(books, showAdminTools) {
                     <button data-id="${book.book_id}" class="btn-order" ${book.display_status !== 'available' ? 'disabled' : ''} data-status="${book.display_status}">
                         ${book.display_status === 'available' ? '📖 Issue Now' : (book.display_status === 'pending_issue' ? 'Request Sent' : 'Currently Issued')}
                     </button>
-                    <button book-pdf-url-data="${book.book_id}" class="open-pdf-btn" href="${book.book_pdf_url}">
-                        Read
-                    </button>
+                    ${book.book_pdf_url ? 
+                            `<button class="open-pdf-btn" href="${book.book_pdf_url}">Read</button>` 
+                            : 
+                            `<button class="open-pdf-btn" disabled style="opacity: 0.5; cursor: not-allowed;">No PDF</button>`
+                    }
                 `} 
             </div>
         </div>
@@ -340,6 +342,26 @@ function setupDeleteListeners() {
                 }
             } catch (error) {
                 alert('Network error while deleting book.');
+            }
+        }
+    });
+}
+
+function setupReadListeners() {
+    if (!booksContainer) return;
+
+    booksContainer.addEventListener('click', (e) => {
+        // Check if the clicked element is the Read button
+        if (e.target.classList.contains('open-pdf-btn')) {
+            // Get the URL from the href attribute
+            const pdfUrl = e.target.getAttribute('href');
+
+            // Check if the URL is valid (not null, not empty, not undefined)
+            if (pdfUrl && pdfUrl !== 'null' && pdfUrl !== 'undefined') {
+                // Open the PDF in a new tab
+                window.open(pdfUrl, '_blank');
+            } else {
+                alert('Sorry, no PDF is available for this book.');
             }
         }
     });
@@ -814,3 +836,4 @@ window.loadBooks = loadBooks;
 
 setupDeleteListeners();
 setupIssueListeners();
+setupReadListeners();
