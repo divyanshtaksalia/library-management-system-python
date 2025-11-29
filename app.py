@@ -231,6 +231,7 @@ def add_book():
         # --- NEW: Get the Image URL from the request ---
         image_url = data.get('image_url', None) 
         # -----------------------------------------------
+        book_pdf_url = data.get('book_pdf_url', None)
 
         book_id = str(uuid.uuid4())
 
@@ -242,6 +243,7 @@ def add_book():
             'total_copies': total_copies,
             'copies_available': total_copies, 
             'image_url': image_url, # Save the link here
+            'book_pdf_url': book_pdf_url,
             'created_at': firestore.SERVER_TIMESTAMP
         }
         
@@ -305,7 +307,8 @@ def update_book_details(book_id):
         
         if 'image_url' in data: # Allow updating the image link
             update_data['image_url'] = data['image_url']
-
+        if 'book_pdf_url' in data:
+            update_data['book_pdf_url'] = data['book_pdf_url']
         if not update_data:
              return jsonify({"success": False, "message": "No valid fields to update."}), 400
 
