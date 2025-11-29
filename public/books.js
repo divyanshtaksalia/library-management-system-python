@@ -292,7 +292,7 @@ function renderBooks(books, showAdminTools) {
                         ${book.display_status === 'available' ? '📖 Issue Now' : (book.display_status === 'pending_issue' ? 'Request Sent' : 'Currently Issued')}
                     </button>
                     ${book.book_pdf_url && book.book_pdf_url !== 'null' ? 
-                            `<button class="open-pdf-btn" href="${book.book_pdf_url}">Read</button>` 
+                            `<button class="open-pdf-btn" href="${book.book_pdf_url}">🔻Downlod</button>` 
                             : 
                             `<button class="open-pdf-btn" disabled style="opacity: 0.5; cursor: not-allowed;">No PDF</button>`
                     }
