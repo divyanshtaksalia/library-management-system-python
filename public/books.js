@@ -291,7 +291,7 @@ function renderBooks(books, showAdminTools) {
                     <button data-id="${book.book_id}" class="btn-order" ${book.display_status !== 'available' ? 'disabled' : ''} data-status="${book.display_status}">
                         ${book.display_status === 'available' ? '📖 Issue Now' : (book.display_status === 'pending_issue' ? 'Request Sent' : 'Currently Issued')}
                     </button>
-                    <button data-id="${book.book_id}" class="open" onclick="window.open('https://cdn.ttgtmedia.com/rms/pdf/pragmatic_programmer_ch4.pdf', '_blank')">
+                    <button data-id="${book.book_id}" class="btn-order" href="${book.book_pdf_url}" target="_blank">
                         Read
                     </button>
                 `} 
