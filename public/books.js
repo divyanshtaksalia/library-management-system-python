@@ -291,7 +291,7 @@ function renderBooks(books, showAdminTools) {
                     <button data-id="${book.book_id}" class="btn-order" ${book.display_status !== 'available' ? 'disabled' : ''} data-status="${book.display_status}">
                         ${book.display_status === 'available' ? '📖 Issue Now' : (book.display_status === 'pending_issue' ? 'Request Sent' : 'Currently Issued')}
                     </button>
-                    ${book.book_pdf_url ? 
+                    ${book.book_pdf_url && book.book_pdf_url !== 'null' ? 
                             `<button class="open-pdf-btn" href="${book.book_pdf_url}">Read</button>` 
                             : 
                             `<button class="open-pdf-btn" disabled style="opacity: 0.5; cursor: not-allowed;">No PDF</button>`
@@ -698,10 +698,12 @@ window.editBook = async function(bookId) {
     const currentTitle = bookItem.querySelector('.book-title').textContent;
     const currentAuthor = bookItem.querySelector('.book-author').textContent.replace('By ', '');
     const currentCategory = bookItem.querySelector('.book-category').textContent.replace('📚 ', '');
+    const currentPdf = bookItem.querySelector('.open-pdf-btn') ? bookItem.querySelector('.open-pdf-btn').getAttribute('href') : '';
 
     const newTitle = prompt('Enter new title:', currentTitle);
     const newAuthor = prompt('Enter new author:', currentAuthor);
     const newCategory = prompt('Enter new category:', currentCategory);
+    const newPdfUrl = prompt('Enter PDF URL:', currentPdf === 'null' ? '' : currentPdf);
 
     if (newTitle === null || newAuthor === null || newCategory === null) {
         return; // User cancelled
@@ -714,7 +716,8 @@ window.editBook = async function(bookId) {
             body: JSON.stringify({
                 title: newTitle,
                 author: newAuthor,
-                category: newCategory
+                category: newCategory,
+                book_pdf_url: newPdfUrl
             })
         });
         const data = await response.json();
@@ -786,7 +789,7 @@ if (addBookForm) {
             category: document.getElementById('newCategory').value,
             copies: document.getElementById('newCopies').value,
             image_url: imageLink,
-            book_pdf_url: pdfLink // 3. Add it to the data sent to backend
+            book_pdf_url: document.getElementById('newPdfUrl') ? document.getElementById('newPdfUrl').value : "" 
         };
 
         try {
