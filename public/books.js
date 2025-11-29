@@ -717,7 +717,7 @@ window.editBook = async function(bookId) {
                 title: newTitle,
                 author: newAuthor,
                 category: newCategory,
-                book_pdf_url: document.getElementById('newPdfUrl').value
+                book_pdf_url: newPdfUrl
             })
         });
         const data = await response.json();
