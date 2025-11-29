@@ -779,9 +779,6 @@ if (addBookForm) {
 
         // 1. Get the Image Link
         const imageLink = document.getElementById('newImageLink').value; 
-        
-        // 2. GET THE PDF LINK (This was missing)
-        const pdfLink = document.getElementById('bookpdflink').value;
 
         const bookData = {
             title: document.getElementById('newTitle').value,
