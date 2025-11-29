@@ -774,15 +774,19 @@ if (addBookForm) {
     addBookForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        // GET THE IMAGE LINK
+        // 1. Get the Image Link
         const imageLink = document.getElementById('newImageLink').value; 
+        
+        // 2. GET THE PDF LINK (This was missing)
+        const pdfLink = document.getElementById('bookpdflink').value;
 
         const bookData = {
             title: document.getElementById('newTitle').value,
             author: document.getElementById('newAuthor').value,
             category: document.getElementById('newCategory').value,
             copies: document.getElementById('newCopies').value,
-            image_url: imageLink 
+            image_url: imageLink,
+            book_pdf_url: pdfLink // 3. Add it to the data sent to backend
         };
 
         try {
@@ -798,12 +802,13 @@ if (addBookForm) {
             if (data.success) {
                 alert('Book added successfully!');
                 
-                // Reset form and hide preview
+                // Reset form
                 addBookForm.reset();
+                
+                // Hide previews
                 const previewImg = document.getElementById('urlPreviewImg');
                 if (previewImg) previewImg.style.display = 'none';
 
-                // Reload books list if the function exists
                 if (typeof loadBooks === 'function') {
                     loadBooks(true);
                 }
