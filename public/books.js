@@ -789,7 +789,7 @@ if (addBookForm) {
             category: document.getElementById('newCategory').value,
             copies: document.getElementById('newCopies').value,
             image_url: imageLink,
-            book_pdf_url: document.getElementById('newPdfUrl') ? document.getElementById('newPdfUrl').value : "" 
+            book_pdf_url: document.getElementById('newPdfUrl').value 
         };
 
         try {
